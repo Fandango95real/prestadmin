@@ -334,6 +334,20 @@ class PrestaShopAPI {
             // Modifie le prix
             $result->product->price = $newPrice;
 
+            // Supprime les champs en lecture seule qui causent des erreurs
+            $readOnlyFields = [
+                'manufacturer_name',
+                'quantity',
+                'position_in_category',
+                'position'
+            ];
+
+            foreach ($readOnlyFields as $field) {
+                if (isset($result->product->$field)) {
+                    unset($result->product->$field);
+                }
+            }
+
             // Convertit en XML
             $xml = $result->asXML();
 
