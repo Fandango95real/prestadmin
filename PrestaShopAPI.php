@@ -331,6 +331,8 @@ class PrestaShopAPI {
                 throw new Exception("Produit non trouvé");
             }
 
+            $oldPrice = (string)$result->product->price;
+
             // Modifie le prix
             $result->product->price = $newPrice;
 
@@ -339,7 +341,9 @@ class PrestaShopAPI {
                 'manufacturer_name',
                 'quantity',
                 'position_in_category',
-                'position'
+                'position',
+                'date_add',
+                'date_upd'
             ];
 
             foreach ($readOnlyFields as $field) {
@@ -352,9 +356,34 @@ class PrestaShopAPI {
             $xml = $result->asXML();
 
             // Met à jour le produit
-            $updateResult = $this->makeRequest("products/$productId", [], 'PUT', $xml);
+            try {
+                $updateResult = $this->makeRequest("products/$productId", [], 'PUT', $xml);
+                return true;
+            } catch (Exception $e) {
+                // Si erreur 500 causée par un module tiers (ex: kbgoogleshopping)
+                // Vérifie si le prix a quand même été mis à jour
+                if (strpos($e->getMessage(), '500') !== false &&
+                    (strpos($e->getMessage(), 'kbgoogleshopping') !== false ||
+                     strpos($e->getMessage(), 'PHP Warning') !== false)) {
 
-            return true;
+                    // Vérifie si le prix a été mis à jour malgré l'erreur
+                    try {
+                        $check = $this->makeRequest("products/$productId", ['display' => '[price]']);
+                        if ($check && isset($check->product->price)) {
+                            $currentPrice = (string)$check->product->price;
+                            // Si le prix a changé, considère la mise à jour comme réussie
+                            if ($currentPrice != $oldPrice) {
+                                return true;
+                            }
+                        }
+                    } catch (Exception $checkError) {
+                        // Ignore les erreurs de vérification
+                    }
+                }
+
+                // Relance l'erreur originale
+                throw $e;
+            }
 
         } catch (Exception $e) {
             throw new Exception("Erreur lors de la mise à jour du produit $productId: " . $e->getMessage());
