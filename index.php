@@ -63,6 +63,42 @@ session_start();
 
                     if ($api->testConnection()) {
                         echo '<div class="alert alert-success">✓ Connexion réussie !</div>';
+
+                        // Vérifie les permissions
+                        $permissions = $api->checkPermissions();
+
+                        if ($permissions['success']) {
+                            echo '<div class="alert alert-success">';
+                            echo '<strong>✓ Toutes les permissions sont configurées correctement :</strong><br>';
+                            echo '<ul style="margin: 10px 0 0 20px;">';
+                            if ($permissions['details']['products_get']) echo '<li>✅ Lecture des produits (GET)</li>';
+                            if ($permissions['details']['categories_get']) echo '<li>✅ Lecture des catégories (GET)</li>';
+                            if ($permissions['details']['products_put'] === true) echo '<li>✅ Modification des produits (PUT)</li>';
+                            echo '</ul>';
+                            echo '</div>';
+
+                            if (!empty($permissions['warnings'])) {
+                                echo '<div class="alert alert-info">';
+                                echo '<strong>ℹ️ Avertissements :</strong><br>';
+                                foreach ($permissions['warnings'] as $warning) {
+                                    echo '• ' . htmlspecialchars($warning) . '<br>';
+                                }
+                                echo '</div>';
+                            }
+                        } else {
+                            echo '<div class="alert alert-error">';
+                            echo '<strong>✗ Permissions manquantes :</strong><br>';
+                            echo '<ul style="margin: 10px 0 0 20px;">';
+                            foreach ($permissions['errors'] as $error) {
+                                echo '<li>' . htmlspecialchars($error) . '</li>';
+                            }
+                            echo '</ul>';
+                            echo '<br><strong>Configuration requise :</strong><br>';
+                            echo '• products → GET ✅ + PUT ✅<br>';
+                            echo '• categories → GET ✅<br>';
+                            echo '<br>Veuillez mettre à jour les permissions dans votre back-office PrestaShop.';
+                            echo '</div>';
+                        }
                     } else {
                         echo '<div class="alert alert-error">✗ Échec de la connexion. Vérifiez vos paramètres.</div>';
                     }

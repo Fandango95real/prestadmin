@@ -118,6 +118,95 @@ class PrestaShopAPI {
     }
 
     /**
+     * Vérifie les permissions de l'API
+     * @return array Résultats des tests [success, errors, warnings]
+     */
+    public function checkPermissions() {
+        $results = [
+            'success' => true,
+            'errors' => [],
+            'warnings' => [],
+            'details' => []
+        ];
+
+        // Test 1: GET sur products
+        try {
+            $result = $this->makeRequest('products', ['limit' => 1]);
+            if ($result !== false) {
+                $results['details']['products_get'] = true;
+            } else {
+                $results['success'] = false;
+                $results['errors'][] = "Impossible de lire les produits (GET)";
+                $results['details']['products_get'] = false;
+            }
+        } catch (Exception $e) {
+            $results['success'] = false;
+            $results['errors'][] = "Erreur GET products: " . $e->getMessage();
+            $results['details']['products_get'] = false;
+        }
+
+        // Test 2: GET sur categories
+        try {
+            $result = $this->makeRequest('categories', ['limit' => 1]);
+            if ($result !== false) {
+                $results['details']['categories_get'] = true;
+            } else {
+                $results['success'] = false;
+                $results['errors'][] = "Impossible de lire les catégories (GET)";
+                $results['details']['categories_get'] = false;
+            }
+        } catch (Exception $e) {
+            $results['success'] = false;
+            $results['errors'][] = "Erreur GET categories: " . $e->getMessage();
+            $results['details']['categories_get'] = false;
+        }
+
+        // Test 3: PUT sur products (test sans modification réelle)
+        try {
+            // Récupère un produit
+            $result = $this->makeRequest('products', ['limit' => 1, 'display' => '[id]']);
+
+            if ($result && isset($result->products->product[0])) {
+                $productId = (string)$result->products->product[0]->id;
+
+                // Essaie de récupérer le produit complet pour tester PUT
+                $productFull = $this->makeRequest("products/$productId");
+
+                if ($productFull && isset($productFull->product)) {
+                    // Test PUT avec les mêmes données (pas de modification)
+                    $xml = $productFull->asXML();
+
+                    try {
+                        $this->makeRequest("products/$productId", [], 'PUT', $xml);
+                        $results['details']['products_put'] = true;
+                    } catch (Exception $e) {
+                        if (strpos($e->getMessage(), '401') !== false || strpos($e->getMessage(), '403') !== false) {
+                            $results['success'] = false;
+                            $results['errors'][] = "Permission PUT manquante sur products";
+                            $results['details']['products_put'] = false;
+                        } else {
+                            // Autre erreur, on considère que la permission existe
+                            $results['warnings'][] = "Test PUT products incomplet: " . $e->getMessage();
+                            $results['details']['products_put'] = 'unknown';
+                        }
+                    }
+                } else {
+                    $results['warnings'][] = "Impossible de tester PUT products (produit non récupérable)";
+                    $results['details']['products_put'] = 'unknown';
+                }
+            } else {
+                $results['warnings'][] = "Impossible de tester PUT products (aucun produit)";
+                $results['details']['products_put'] = 'unknown';
+            }
+        } catch (Exception $e) {
+            $results['warnings'][] = "Test PUT products incomplet: " . $e->getMessage();
+            $results['details']['products_put'] = 'unknown';
+        }
+
+        return $results;
+    }
+
+    /**
      * Récupère toutes les catégories
      * @return array Liste des catégories avec [id, name]
      */
