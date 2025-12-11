@@ -55,6 +55,8 @@ session_start();
             if (isset($_POST['save_config'])) {
                 $_SESSION['shop_url'] = trim($_POST['shop_url']);
                 $_SESSION['api_key'] = trim($_POST['api_key']);
+                // Réinitialise la validation à chaque nouveau test
+                $_SESSION['connection_validated'] = false;
 
                 require_once 'PrestaShopAPI.php';
 
@@ -68,6 +70,9 @@ session_start();
                         $permissions = $api->checkPermissions();
 
                         if ($permissions['success']) {
+                            // Marque la connexion comme validée
+                            $_SESSION['connection_validated'] = true;
+
                             echo '<div class="alert alert-success">';
                             echo '<strong>✓ Toutes les permissions sont configurées correctement :</strong><br>';
                             echo '<ul style="margin: 10px 0 0 20px;">';
@@ -109,7 +114,7 @@ session_start();
             ?>
         </div>
 
-        <?php if (isset($_SESSION['shop_url']) && isset($_SESSION['api_key'])): ?>
+        <?php if (isset($_SESSION['connection_validated']) && $_SESSION['connection_validated'] === true): ?>
         <div class="actions-container">
             <div class="card action-card">
                 <h3>📥 Exporter les produits</h3>
@@ -169,5 +174,28 @@ session_start();
     <footer>
         <p>PrestaShop CSV Manager - Version 1.0 - Compatible PrestaShop 8.2</p>
     </footer>
+
+    <script>
+        // Invalide la connexion si l'utilisateur modifie les champs
+        const shopUrlInput = document.getElementById('shop_url');
+        const apiKeyInput = document.getElementById('api_key');
+
+        if (shopUrlInput && apiKeyInput) {
+            const originalUrl = shopUrlInput.value;
+            const originalKey = apiKeyInput.value;
+
+            function checkChanges() {
+                if (shopUrlInput.value !== originalUrl || apiKeyInput.value !== originalKey) {
+                    // Envoie une requête pour invalider la session
+                    fetch('invalidate_session.php', {
+                        method: 'POST'
+                    });
+                }
+            }
+
+            shopUrlInput.addEventListener('input', checkChanges);
+            apiKeyInput.addEventListener('input', checkChanges);
+        }
+    </script>
 </body>
 </html>

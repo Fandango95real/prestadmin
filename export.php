@@ -5,8 +5,8 @@ session_start();
 set_time_limit(600); // 10 minutes
 ini_set('max_execution_time', 600);
 
-// Vérifie que la configuration existe
-if (!isset($_SESSION['shop_url']) || !isset($_SESSION['api_key'])) {
+// Vérifie que la connexion a été validée
+if (!isset($_SESSION['connection_validated']) || $_SESSION['connection_validated'] !== true) {
     header('Location: index.php');
     exit;
 }
