@@ -34,11 +34,20 @@ if (isset($_POST['export'])) {
 
         // Génère le fichier CSV
         $filename = 'products_' . date('Y-m-d_H-i-s') . '.csv';
-        $filepath = __DIR__ . '/exports/' . $filename;
+        $exportsDir = __DIR__ . '/exports';
+        $filepath = $exportsDir . '/' . $filename;
 
         // Crée le dossier exports s'il n'existe pas
-        if (!is_dir(__DIR__ . '/exports')) {
-            mkdir(__DIR__ . '/exports', 0755, true);
+        if (!is_dir($exportsDir)) {
+            if (!mkdir($exportsDir, 0777, true)) {
+                throw new Exception("Impossible de créer le dossier exports. Vérifiez les permissions.");
+            }
+            chmod($exportsDir, 0777);
+        }
+
+        // Vérifie les permissions d'écriture
+        if (!is_writable($exportsDir)) {
+            throw new Exception("Le dossier exports n'est pas accessible en écriture. Permissions actuelles: " . substr(sprintf('%o', fileperms($exportsDir)), -4));
         }
 
         $result = $api->exportToCSV($filepath, $categoryId);

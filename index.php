@@ -119,11 +119,9 @@ session_start();
             <div class="card action-card">
                 <h3>📥 Exporter les produits</h3>
                 <p>Téléchargez tous vos produits dans un fichier CSV</p>
-                <form method="POST" action="export.php">
-                    <button type="submit" name="export" class="btn btn-success">
-                        Exporter vers CSV
-                    </button>
-                </form>
+                <a href="export.php" class="btn btn-success" style="text-decoration: none; display: inline-block;">
+                    Exporter vers CSV
+                </a>
             </div>
 
             <div class="card action-card">

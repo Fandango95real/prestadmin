@@ -1,0 +1,11 @@
+# Protection du dossier exports
+# Empêche l'accès direct aux fichiers CSV
+
+# Refuse tout accès sauf pour les fichiers CSV téléchargés via l'application
+Order Deny,Allow
+Deny from all
+
+# Alternative pour Apache 2.4+
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>

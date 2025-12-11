@@ -361,10 +361,12 @@ class PrestaShopAPI {
                 throw new Exception("Aucun produit à exporter");
             }
 
-            $fp = fopen($filename, 'w');
+            $fp = @fopen($filename, 'w');
 
             if (!$fp) {
-                throw new Exception("Impossible de créer le fichier CSV");
+                $error = error_get_last();
+                $errorMsg = $error ? $error['message'] : 'Raison inconnue';
+                throw new Exception("Impossible de créer le fichier CSV '$filename'. Erreur: $errorMsg");
             }
 
             // En-têtes CSV

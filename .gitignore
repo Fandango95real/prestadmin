@@ -1,6 +1,7 @@
-# Dossiers d'export
-exports/
-*.csv
+# Fichiers CSV d'export (mais garde les fichiers de protection)
+exports/*.csv
+!exports/.htaccess
+!exports/index.php
 
 # Fichiers de session PHP
 sessions/
