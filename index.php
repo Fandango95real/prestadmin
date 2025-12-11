@@ -47,7 +47,7 @@ session_start();
                 </div>
 
                 <button type="submit" name="save_config" class="btn btn-primary">
-                    Enregistrer la configuration
+                    Tester la connexion
                 </button>
             </form>
 
