@@ -1,6 +1,10 @@
 <?php
 session_start();
 
+// Augmente les timeouts pour éviter les erreurs 524
+set_time_limit(600); // 10 minutes
+ini_set('max_execution_time', 600);
+
 // Vérifie que la configuration existe
 if (!isset($_SESSION['shop_url']) || !isset($_SESSION['api_key'])) {
     header('Location: index.php');
@@ -11,30 +15,38 @@ require_once 'PrestaShopAPI.php';
 
 $message = '';
 $messageType = '';
-$products = [];
+$categories = [];
+
+// Charge les catégories au chargement de la page
+try {
+    $api = new PrestaShopAPI($_SESSION['shop_url'], $_SESSION['api_key'], false);
+    $categories = $api->getAllCategories();
+} catch (Exception $e) {
+    $messageType = 'error';
+    $message = 'Erreur lors du chargement des catégories: ' . $e->getMessage();
+}
 
 if (isset($_POST['export'])) {
     try {
         $api = new PrestaShopAPI($_SESSION['shop_url'], $_SESSION['api_key'], false);
 
-        // Récupère tous les produits
-        $products = $api->getAllProducts();
+        $categoryId = isset($_POST['category_id']) ? intval($_POST['category_id']) : 0;
 
-        if (empty($products)) {
+        // Génère le fichier CSV
+        $filename = 'products_' . date('Y-m-d_H-i-s') . '.csv';
+        $filepath = __DIR__ . '/exports/' . $filename;
+
+        // Crée le dossier exports s'il n'existe pas
+        if (!is_dir(__DIR__ . '/exports')) {
+            mkdir(__DIR__ . '/exports', 0755, true);
+        }
+
+        $result = $api->exportToCSV($filepath, $categoryId);
+
+        if ($result['count'] == 0) {
             $messageType = 'error';
-            $message = 'Aucun produit trouvé dans votre boutique.';
+            $message = 'Aucun produit trouvé dans cette catégorie.';
         } else {
-            // Génère le fichier CSV
-            $filename = 'products_' . date('Y-m-d_H-i-s') . '.csv';
-            $filepath = __DIR__ . '/exports/' . $filename;
-
-            // Crée le dossier exports s'il n'existe pas
-            if (!is_dir(__DIR__ . '/exports')) {
-                mkdir(__DIR__ . '/exports', 0755, true);
-            }
-
-            $api->exportToCSV($filepath);
-
             // Télécharge le fichier
             header('Content-Type: text/csv; charset=utf-8');
             header('Content-Disposition: attachment; filename="' . $filename . '"');
@@ -77,9 +89,22 @@ if (isset($_POST['export'])) {
             <?php endif; ?>
 
             <h2>Exporter les produits</h2>
-            <p>Cliquez sur le bouton ci-dessous pour télécharger tous vos produits dans un fichier CSV.</p>
+            <p>Sélectionnez une catégorie ou exportez tous les produits.</p>
 
             <form method="POST" style="margin-top: 20px;">
+                <div class="form-group">
+                    <label for="category_id">Catégorie</label>
+                    <select id="category_id" name="category_id" class="select-input">
+                        <option value="0">📦 Tous les produits</option>
+                        <?php foreach ($categories as $category): ?>
+                            <option value="<?php echo htmlspecialchars($category['id']); ?>">
+                                <?php echo htmlspecialchars($category['name']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <small>Choisissez une catégorie spécifique ou exportez tous les produits</small>
+                </div>
+
                 <button type="submit" name="export" class="btn btn-success">
                     📥 Télécharger le fichier CSV
                 </button>
@@ -99,11 +124,17 @@ if (isset($_POST['export'])) {
                     <strong>Encodage:</strong> UTF-8
                 </p>
             </div>
+
+            <div class="alert alert-info" style="margin-top: 20px;">
+                <strong>⚡ Optimisation:</strong> L'export utilise maintenant la pagination pour éviter les timeouts.
+                Même avec des milliers de produits, l'export devrait fonctionner correctement.
+            </div>
         </div>
 
         <div class="card help-card">
             <h3>💡 Conseils</h3>
             <ul style="margin-left: 20px; margin-top: 10px;">
+                <li>Pour les boutiques avec beaucoup de produits, exportez par catégorie</li>
                 <li>Vous pouvez modifier les prix dans le fichier CSV avec Excel ou LibreOffice</li>
                 <li>Ne modifiez pas les colonnes ID, Nom et Référence</li>
                 <li>Utilisez le point comme séparateur décimal pour les prix (ex: 19.99)</li>

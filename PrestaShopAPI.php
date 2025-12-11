@@ -41,6 +41,8 @@ class PrestaShopAPI {
         curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 300); // Timeout de 5 minutes
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30); // Timeout de connexion 30s
 
         switch ($method) {
             case 'POST':
@@ -116,32 +118,106 @@ class PrestaShopAPI {
     }
 
     /**
-     * Récupère tous les produits
-     * @return array Liste des produits avec [id, name, reference, price]
+     * Récupère toutes les catégories
+     * @return array Liste des catégories avec [id, name]
      */
-    public function getAllProducts() {
-        $products = [];
+    public function getAllCategories() {
+        $categories = [];
 
         try {
-            // Récupère la liste des IDs de produits
-            $result = $this->makeRequest('products', ['display' => 'full']);
+            $result = $this->makeRequest('categories', ['display' => '[id,name]']);
 
-            if (!$result || !isset($result->products->product)) {
-                return $products;
+            if (!$result || !isset($result->categories->category)) {
+                return $categories;
             }
 
-            foreach ($result->products->product as $product) {
-                $id = (string)$product->id;
-                $name = (string)$product->name->language[0];
-                $reference = (string)$product->reference;
-                $price = (string)$product->price;
+            foreach ($result->categories->category as $category) {
+                $id = (string)$category->id;
+                $name = (string)$category->name->language[0];
 
-                $products[] = [
+                $categories[] = [
                     'id' => $id,
-                    'name' => $name,
-                    'reference' => $reference,
-                    'price' => $price
+                    'name' => $name
                 ];
+            }
+
+        } catch (Exception $e) {
+            throw new Exception("Erreur lors de la récupération des catégories: " . $e->getMessage());
+        }
+
+        return $categories;
+    }
+
+    /**
+     * Récupère tous les produits avec pagination optimisée
+     * @param int $categoryId ID de catégorie (optionnel, 0 = toutes)
+     * @param int $limit Nombre de produits par page
+     * @return array Liste des produits avec [id, name, reference, price]
+     */
+    public function getAllProducts($categoryId = 0, $limit = 50) {
+        $products = [];
+        $offset = 0;
+
+        try {
+            // Première requête pour obtenir les IDs seulement
+            $params = ['display' => '[id]', 'limit' => "$offset,$limit"];
+
+            if ($categoryId > 0) {
+                $params['filter[id_category_default]'] = $categoryId;
+            }
+
+            while (true) {
+                $params['limit'] = "$offset,$limit";
+                $result = $this->makeRequest('products', $params);
+
+                if (!$result || !isset($result->products->product)) {
+                    break;
+                }
+
+                $productIds = [];
+                foreach ($result->products->product as $product) {
+                    $productIds[] = (string)$product->id;
+                }
+
+                if (empty($productIds)) {
+                    break;
+                }
+
+                // Récupère les détails par lot
+                $detailsParams = [
+                    'display' => '[id,name,reference,price]',
+                    'filter[id]' => '[' . implode('|', $productIds) . ']'
+                ];
+
+                $details = $this->makeRequest('products', $detailsParams);
+
+                if ($details && isset($details->products->product)) {
+                    foreach ($details->products->product as $product) {
+                        $id = (string)$product->id;
+                        $name = isset($product->name->language[0]) ? (string)$product->name->language[0] : '';
+                        $reference = (string)$product->reference;
+                        $price = (string)$product->price;
+
+                        $products[] = [
+                            'id' => $id,
+                            'name' => $name,
+                            'reference' => $reference,
+                            'price' => $price
+                        ];
+                    }
+                }
+
+                // Si on a récupéré moins que la limite, on a tout
+                if (count($productIds) < $limit) {
+                    break;
+                }
+
+                $offset += $limit;
+
+                // Évite les boucles infinies
+                if ($offset > 10000) {
+                    break;
+                }
             }
 
         } catch (Exception $e) {
@@ -185,11 +261,12 @@ class PrestaShopAPI {
     /**
      * Exporte les produits vers un fichier CSV
      * @param string $filename Nom du fichier CSV
-     * @return bool
+     * @param int $categoryId ID de catégorie (0 = toutes)
+     * @return array Informations sur l'export [count, filename]
      */
-    public function exportToCSV($filename = 'products_export.csv') {
+    public function exportToCSV($filename = 'products_export.csv', $categoryId = 0) {
         try {
-            $products = $this->getAllProducts();
+            $products = $this->getAllProducts($categoryId);
 
             if (empty($products)) {
                 throw new Exception("Aucun produit à exporter");
@@ -215,7 +292,11 @@ class PrestaShopAPI {
             }
 
             fclose($fp);
-            return true;
+
+            return [
+                'count' => count($products),
+                'filename' => $filename
+            ];
 
         } catch (Exception $e) {
             throw new Exception("Erreur lors de l'export CSV: " . $e->getMessage());

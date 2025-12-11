@@ -5,9 +5,12 @@ Application web PHP pour gérer vos produits PrestaShop via des fichiers CSV. Co
 ## 🎯 Fonctionnalités
 
 - **Export CSV** : Téléchargez tous vos produits (ID, nom, référence, prix) dans un fichier CSV
+- **Filtre par catégorie** : Exportez tous les produits ou seulement ceux d'une catégorie spécifique
 - **Import CSV** : Mettez à jour les prix de vos produits à partir d'un fichier CSV
+- **Pagination optimisée** : Gestion efficace des boutiques avec des milliers de produits
 - **Interface intuitive** : Interface web simple et moderne
 - **API PrestaShop** : Utilise l'API REST native de PrestaShop
+- **Timeouts augmentés** : Évite les erreurs 524 sur les gros catalogues
 
 ## 📋 Prérequis
 
@@ -59,7 +62,11 @@ La connexion sera testée automatiquement.
 ### 2. Exporter les produits
 
 1. Sur la page d'accueil, cliquez sur **Exporter vers CSV**
-2. Le fichier CSV sera téléchargé automatiquement
+2. **Sélectionnez une catégorie** dans la liste déroulante (ou "Tous les produits")
+3. Cliquez sur **Télécharger le fichier CSV**
+4. Le fichier CSV sera téléchargé automatiquement
+
+**Astuce** : Pour les boutiques avec beaucoup de produits, il est recommandé d'exporter par catégorie pour éviter les timeouts.
 
 **Format du fichier exporté :**
 ```csv
@@ -100,14 +107,17 @@ new PrestaShopAPI($shopUrl, $apiKey, $debug = false)
 // Tester la connexion
 $api->testConnection(): bool
 
-// Récupérer tous les produits
-$api->getAllProducts(): array
+// Récupérer toutes les catégories
+$api->getAllCategories(): array
+
+// Récupérer tous les produits (avec filtre optionnel par catégorie)
+$api->getAllProducts($categoryId = 0, $limit = 50): array
 
 // Mettre à jour le prix d'un produit
 $api->updateProductPrice($productId, $newPrice): bool
 
-// Exporter vers CSV
-$api->exportToCSV($filename): bool
+// Exporter vers CSV (avec filtre optionnel par catégorie)
+$api->exportToCSV($filename, $categoryId = 0): array
 
 // Importer depuis CSV
 $api->importFromCSV($filename): array
@@ -120,8 +130,16 @@ require_once 'PrestaShopAPI.php';
 
 $api = new PrestaShopAPI('https://monsite.com', 'VOTRE_CLE_API');
 
-// Export
-$api->exportToCSV('produits.csv');
+// Récupérer toutes les catégories
+$categories = $api->getAllCategories();
+
+// Export de tous les produits
+$result = $api->exportToCSV('produits.csv');
+echo "Produits exportés : " . $result['count'];
+
+// Export d'une catégorie spécifique
+$result = $api->exportToCSV('produits_categorie_5.csv', 5);
+echo "Produits exportés : " . $result['count'];
 
 // Import
 $results = $api->importFromCSV('produits_modifies.csv');
@@ -232,6 +250,7 @@ Pour la clé API, activez uniquement :
 | Ressource  | GET | POST | PUT | DELETE |
 |------------|-----|------|-----|--------|
 | products   | ✅  | ❌   | ✅  | ❌     |
+| categories | ✅  | ❌   | ❌  | ❌     |
 
 ### Comment créer la clé API
 
@@ -242,8 +261,8 @@ Pour la clé API, activez uniquement :
    - **Nom de la clé** : CSV Manager
    - **Statut** : Activé
 5. Dans **Permissions** :
-   - Recherchez "products"
-   - Cochez **GET** et **PUT**
+   - Recherchez "products" → Cochez **GET** et **PUT**
+   - Recherchez "categories" → Cochez **GET**
 6. Cliquez sur **Enregistrer**
 7. Copiez la clé générée
 
@@ -251,8 +270,10 @@ Pour la clé API, activez uniquement :
 
 - **Prix HT** : Les prix dans PrestaShop sont stockés Hors Taxes
 - **Sauvegarde** : Faites toujours un export avant d'importer pour avoir une sauvegarde
-- **Performance** : L'import peut prendre du temps pour un grand nombre de produits
-- **Limite** : Pas de limite sur le nombre de produits, mais surveillez le timeout PHP
+- **Performance** : L'application utilise la pagination pour gérer efficacement les gros catalogues
+- **Timeouts** : Augmentés à 10 minutes pour éviter les erreurs 524 sur les gros catalogues
+- **Pagination** : Les produits sont récupérés par lots de 50 pour optimiser les performances
+- **Catégories** : Exportez par catégorie pour accélérer le traitement sur les grandes boutiques
 
 ## 🆕 Fonctionnalités futures
 
