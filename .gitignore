@@ -1,0 +1,24 @@
+# Dossiers d'export
+exports/
+*.csv
+
+# Fichiers de session PHP
+sessions/
+
+# Logs
+*.log
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporaires
+tmp/
+temp/
