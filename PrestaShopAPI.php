@@ -362,10 +362,17 @@ class PrestaShopAPI {
                 return $combinations;
             }
 
-            $combos = $combosResult->combinations->combination;
-            // Si une seule déclinaison, l'API retourne un objet au lieu d'un array
-            if (!is_array($combos)) {
-                $combos = [$combos];
+            // SimpleXML ne retourne jamais un array natif PHP
+            // On doit utiliser iterator_to_array pour convertir les multiples éléments
+            $combosXml = $combosResult->combinations->combination;
+
+            // Vérifier s'il y a plusieurs éléments ou un seul
+            if (count($combosXml) > 1) {
+                // Plusieurs déclinaisons : convertir en tableau
+                $combos = iterator_to_array($combosXml);
+            } else {
+                // Une seule déclinaison
+                $combos = [$combosXml];
             }
 
             foreach ($combos as $combo) {
@@ -376,9 +383,13 @@ class PrestaShopAPI {
                     // Récupère le nom de la déclinaison
                     $combName = '';
                     if (isset($c->associations->product_option_values->product_option_value)) {
-                        $optionValues = $c->associations->product_option_values->product_option_value;
-                        if (!is_array($optionValues)) {
-                            $optionValues = [$optionValues];
+                        $optionValuesXml = $c->associations->product_option_values->product_option_value;
+
+                        // Même traitement SimpleXML que pour les combinations
+                        if (count($optionValuesXml) > 1) {
+                            $optionValues = iterator_to_array($optionValuesXml);
+                        } else {
+                            $optionValues = [$optionValuesXml];
                         }
 
                         $namesParts = [];
