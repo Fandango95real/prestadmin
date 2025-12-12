@@ -317,6 +317,181 @@ class PrestaShopAPI {
     }
 
     /**
+     * Récupère les déclinaisons d'un produit
+     * @param int $productId ID du produit
+     * @return array Liste des déclinaisons avec [id, name, reference, price, price_impact]
+     */
+    public function getProductCombinations($productId) {
+        $combinations = [];
+
+        try {
+            $result = $this->makeRequest("products/$productId", ['display' => '[id,name,associations]']);
+
+            if (!$result || !isset($result->product)) {
+                return $combinations;
+            }
+
+            $productName = isset($result->product->name->language[0]) ? (string)$result->product->name->language[0] : '';
+
+            // Vérifie si le produit a des déclinaisons
+            if (!isset($result->product->associations->combinations->combination)) {
+                return $combinations;
+            }
+
+            $combos = $result->product->associations->combinations->combination;
+            // Si une seule déclinaison, l'API retourne un objet au lieu d'un array
+            if (!is_array($combos)) {
+                $combos = [$combos];
+            }
+
+            foreach ($combos as $combo) {
+                $combinationId = (string)$combo->id;
+
+                // Récupère les détails de la déclinaison
+                try {
+                    $combDetails = $this->makeRequest("combinations/$combinationId");
+
+                    if ($combDetails && isset($combDetails->combination)) {
+                        $c = $combDetails->combination;
+
+                        // Récupère le nom de la déclinaison
+                        $combName = '';
+                        if (isset($c->associations->product_option_values->product_option_value)) {
+                            $optionValues = $c->associations->product_option_values->product_option_value;
+                            if (!is_array($optionValues)) {
+                                $optionValues = [$optionValues];
+                            }
+
+                            $namesParts = [];
+                            foreach ($optionValues as $optVal) {
+                                $optValId = (string)$optVal->id;
+                                // Récupère le nom de la valeur d'option
+                                try {
+                                    $optValDetails = $this->makeRequest("product_option_values/$optValId", ['display' => '[name]']);
+                                    if ($optValDetails && isset($optValDetails->product_option_value->name->language[0])) {
+                                        $namesParts[] = (string)$optValDetails->product_option_value->name->language[0];
+                                    }
+                                } catch (Exception $e) {
+                                    // Ignore les erreurs de récupération de nom
+                                }
+                            }
+                            $combName = implode(' - ', $namesParts);
+                        }
+
+                        $price = (string)$c->price;
+                        $reference = (string)$c->reference;
+
+                        $combinations[] = [
+                            'id' => $combinationId,
+                            'product_name' => $productName,
+                            'combination_name' => $combName,
+                            'reference' => $reference,
+                            'price' => $price
+                        ];
+                    }
+                } catch (Exception $e) {
+                    // Ignore les erreurs sur les déclinaisons individuelles
+                    continue;
+                }
+            }
+
+        } catch (Exception $e) {
+            throw new Exception("Erreur lors de la récupération des déclinaisons: " . $e->getMessage());
+        }
+
+        return $combinations;
+    }
+
+    /**
+     * Récupère tous les produits avec leurs déclinaisons
+     * @param int $categoryId ID de catégorie (optionnel, 0 = toutes)
+     * @return array Liste combinée produits + déclinaisons
+     */
+    public function getAllProductsWithCombinations($categoryId = 0) {
+        $result = [];
+
+        try {
+            // Récupère tous les produits
+            $products = $this->getAllProducts($categoryId);
+
+            foreach ($products as $product) {
+                $productId = $product['id'];
+
+                // Récupère les déclinaisons de ce produit
+                $combinations = $this->getProductCombinations($productId);
+
+                if (empty($combinations)) {
+                    // Produit sans déclinaisons
+                    $result[] = [
+                        'product_id' => $productId,
+                        'combination_id' => '0',
+                        'product_name' => $product['name'],
+                        'combination_name' => '',
+                        'reference' => $product['reference'],
+                        'price' => $product['price'],
+                        'has_combinations' => 'no'
+                    ];
+                } else {
+                    // Produit avec déclinaisons
+                    foreach ($combinations as $combination) {
+                        $result[] = [
+                            'product_id' => $productId,
+                            'combination_id' => $combination['id'],
+                            'product_name' => $combination['product_name'],
+                            'combination_name' => $combination['combination_name'],
+                            'reference' => $combination['reference'],
+                            'price' => $combination['price'],
+                            'has_combinations' => 'yes'
+                        ];
+                    }
+                }
+            }
+
+        } catch (Exception $e) {
+            throw new Exception("Erreur lors de la récupération des produits avec déclinaisons: " . $e->getMessage());
+        }
+
+        return $result;
+    }
+
+    /**
+     * Met à jour le prix d'une déclinaison
+     * @param int $combinationId ID de la déclinaison
+     * @param float $newPrice Nouveau prix (fixe ou impact selon PrestaShop)
+     * @return bool
+     */
+    public function updateCombinationPrice($combinationId, $newPrice) {
+        try {
+            // Récupère la déclinaison actuelle
+            $result = $this->makeRequest("combinations/$combinationId");
+
+            if (!$result || !isset($result->combination)) {
+                throw new Exception("Déclinaison non trouvée");
+            }
+
+            // Modifie le prix
+            $result->combination->price = $newPrice;
+
+            // Convertit en XML
+            $xml = $result->asXML();
+
+            // Met à jour la déclinaison
+            $updateResult = $this->makeRequest("combinations/$combinationId", [], 'PUT', $xml);
+
+            return true;
+
+        } catch (Exception $e) {
+            // Gestion des erreurs du module kbgoogleshopping
+            if (strpos($e->getMessage(), '500') !== false &&
+                (strpos($e->getMessage(), 'kbgoogleshopping') !== false ||
+                 strpos($e->getMessage(), 'PHP Warning') !== false)) {
+                return true;
+            }
+            throw new Exception("Erreur lors de la mise à jour de la déclinaison $combinationId: " . $e->getMessage());
+        }
+    }
+
+    /**
      * Met à jour le prix d'un produit
      * @param int $productId ID du produit
      * @param float $newPrice Nouveau prix
@@ -415,6 +590,55 @@ class PrestaShopAPI {
     }
 
     /**
+     * Exporte les produits avec déclinaisons vers un fichier CSV
+     * @param string $filename Nom du fichier CSV
+     * @param int $categoryId ID de catégorie (0 = toutes)
+     * @return array Informations sur l'export [count, filename]
+     */
+    public function exportCombinationsToCSV($filename = 'combinations_export.csv', $categoryId = 0) {
+        try {
+            $items = $this->getAllProductsWithCombinations($categoryId);
+
+            if (empty($items)) {
+                throw new Exception("Aucun produit à exporter");
+            }
+
+            $fp = @fopen($filename, 'w');
+
+            if (!$fp) {
+                $error = error_get_last();
+                $errorMsg = $error ? $error['message'] : 'Raison inconnue';
+                throw new Exception("Impossible de créer le fichier CSV '$filename'. Erreur: $errorMsg");
+            }
+
+            // En-têtes CSV
+            fputcsv($fp, ['ProductID', 'CombinationID', 'ProductName', 'CombinationName', 'Reference', 'Price'], ';');
+
+            // Données
+            foreach ($items as $item) {
+                fputcsv($fp, [
+                    $item['product_id'],
+                    $item['combination_id'],
+                    $item['product_name'],
+                    $item['combination_name'],
+                    $item['reference'],
+                    $item['price']
+                ], ';');
+            }
+
+            fclose($fp);
+
+            return [
+                'count' => count($items),
+                'filename' => $filename
+            ];
+
+        } catch (Exception $e) {
+            throw new Exception("Erreur lors de l'export CSV: " . $e->getMessage());
+        }
+    }
+
+    /**
      * Exporte les produits vers un fichier CSV
      * @param string $filename Nom du fichier CSV
      * @param int $categoryId ID de catégorie (0 = toutes)
@@ -487,41 +711,88 @@ class PrestaShopAPI {
             // Lit l'en-tête
             $header = fgetcsv($fp, 0, ';');
 
+            // Détecte le format (produits simples ou avec déclinaisons)
+            $hasCombinations = false;
+            if ($header && count($header) >= 6 && strtolower($header[1]) == 'combinationid') {
+                $hasCombinations = true;
+            }
+
             // Vérifie le format
             if (!$header || count($header) < 4) {
                 fclose($fp);
-                throw new Exception("Format CSV invalide. Attendu: ID;Nom;Référence;Prix");
+                throw new Exception("Format CSV invalide.");
             }
 
             // Lit les données
             while (($data = fgetcsv($fp, 0, ';')) !== false) {
                 $results['total']++;
 
-                if (count($data) < 4) {
-                    $results['errors'][] = "Ligne " . ($results['total'] + 1) . ": données incomplètes";
-                    continue;
-                }
+                if ($hasCombinations) {
+                    // Format avec déclinaisons: ProductID;CombinationID;ProductName;CombinationName;Reference;Price
+                    if (count($data) < 6) {
+                        $results['errors'][] = "Ligne " . ($results['total'] + 1) . ": données incomplètes";
+                        continue;
+                    }
 
-                $id = trim($data[0]);
-                $price = trim($data[3]);
+                    $productId = trim($data[0]);
+                    $combinationId = trim($data[1]);
+                    $price = trim($data[5]);
 
-                // Valide les données
-                if (empty($id) || !is_numeric($id)) {
-                    $results['errors'][] = "Ligne " . ($results['total'] + 1) . ": ID invalide";
-                    continue;
-                }
+                    // Valide les données
+                    if (empty($productId) || !is_numeric($productId)) {
+                        $results['errors'][] = "Ligne " . ($results['total'] + 1) . ": ProductID invalide";
+                        continue;
+                    }
 
-                if (empty($price) || !is_numeric($price)) {
-                    $results['errors'][] = "Ligne " . ($results['total'] + 1) . ": prix invalide";
-                    continue;
-                }
+                    if (!is_numeric($price) && !preg_match('/^[+-]\d+(\.\d+)?$/', $price)) {
+                        $results['errors'][] = "Ligne " . ($results['total'] + 1) . ": prix invalide";
+                        continue;
+                    }
 
-                // Met à jour le produit
-                try {
-                    $this->updateProductPrice($id, $price);
-                    $results['success']++;
-                } catch (Exception $e) {
-                    $results['errors'][] = "Produit $id: " . $e->getMessage();
+                    // Met à jour le produit ou la déclinaison
+                    try {
+                        if ($combinationId == '0' || empty($combinationId)) {
+                            // Produit simple
+                            $this->updateProductPrice($productId, $price);
+                            $results['success']++;
+                        } else {
+                            // Déclinaison
+                            $this->updateCombinationPrice($combinationId, $price);
+                            $results['success']++;
+                        }
+                    } catch (Exception $e) {
+                        $label = $combinationId == '0' ? "Produit $productId" : "Déclinaison $combinationId";
+                        $results['errors'][] = "$label: " . $e->getMessage();
+                    }
+
+                } else {
+                    // Format simple: ID;Nom;Référence;Prix
+                    if (count($data) < 4) {
+                        $results['errors'][] = "Ligne " . ($results['total'] + 1) . ": données incomplètes";
+                        continue;
+                    }
+
+                    $id = trim($data[0]);
+                    $price = trim($data[3]);
+
+                    // Valide les données
+                    if (empty($id) || !is_numeric($id)) {
+                        $results['errors'][] = "Ligne " . ($results['total'] + 1) . ": ID invalide";
+                        continue;
+                    }
+
+                    if (empty($price) || !is_numeric($price)) {
+                        $results['errors'][] = "Ligne " . ($results['total'] + 1) . ": prix invalide";
+                        continue;
+                    }
+
+                    // Met à jour le produit
+                    try {
+                        $this->updateProductPrice($id, $price);
+                        $results['success']++;
+                    } catch (Exception $e) {
+                        $results['errors'][] = "Produit $id: " . $e->getMessage();
+                    }
                 }
             }
 

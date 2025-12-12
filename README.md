@@ -5,8 +5,11 @@ Application web PHP pour gérer vos produits PrestaShop via des fichiers CSV. Co
 ## 🎯 Fonctionnalités
 
 - **Export CSV** : Téléchargez tous vos produits (ID, nom, référence, prix) dans un fichier CSV
+- **Gestion des déclinaisons** : Support complet des produits avec déclinaisons (tailles, couleurs, etc.)
+- **Export avec déclinaisons** : Exportez tous les produits avec leurs déclinaisons pour une gestion fine des prix
 - **Filtre par catégorie** : Exportez tous les produits ou seulement ceux d'une catégorie spécifique
 - **Import CSV** : Mettez à jour les prix de vos produits à partir d'un fichier CSV
+- **Détection automatique du format** : L'import détecte automatiquement le format (standard ou avec déclinaisons)
 - **Pagination optimisée** : Gestion efficace des boutiques avec des milliers de produits
 - **Interface intuitive** : Interface web simple et moderne
 - **API PrestaShop** : Utilise l'API REST native de PrestaShop
@@ -46,6 +49,11 @@ Application web PHP pour gérer vos produits PrestaShop via des fichiers CSV. Co
    - Activez les permissions pour **products** :
      - ✅ GET (lecture)
      - ✅ PUT (modification)
+   - Activez les permissions pour **combinations** (déclinaisons) :
+     - ✅ GET (lecture)
+     - ✅ PUT (modification)
+   - Activez les permissions pour **categories** :
+     - ✅ GET (lecture)
    - Copiez la clé générée
 
 ## 📖 Utilisation
@@ -63,25 +71,40 @@ La connexion sera testée automatiquement.
 
 1. Sur la page d'accueil, cliquez sur **Exporter vers CSV**
 2. **Sélectionnez une catégorie** dans la liste déroulante (ou "Tous les produits")
-3. Cliquez sur **Télécharger le fichier CSV**
-4. Le fichier CSV sera téléchargé automatiquement
+3. **Choisissez le type d'export** :
+   - **Export standard** : Exporte uniquement les produits simples (ID, Nom, Référence, Prix)
+   - **Export avec déclinaisons** : Exporte tous les produits avec leurs déclinaisons
+4. Cliquez sur **Télécharger le fichier CSV**
+5. Le fichier CSV sera téléchargé automatiquement
 
 **Astuce** : Pour les boutiques avec beaucoup de produits, il est recommandé d'exporter par catégorie pour éviter les timeouts.
 
-**Format du fichier exporté :**
+**Format du fichier exporté (standard) :**
 ```csv
 ID;Nom;Référence;Prix
 1;Produit exemple;REF001;19.99
 2;Autre produit;REF002;29.99
 ```
 
+**Format du fichier exporté (avec déclinaisons) :**
+```csv
+ProductID;CombinationID;ProductName;CombinationName;Reference;Price
+1158;42;T-Shirt;Rouge - S;REF-1158-R-S;19.99
+1158;43;T-Shirt;Rouge - M;REF-1158-R-M;21.99
+1159;0;Produit simple;-;REF-1159;15.00
+```
+
+**Note** : Dans le format avec déclinaisons, `CombinationID = 0` indique un produit sans déclinaisons.
+
 ### 3. Importer et mettre à jour les prix
 
-1. Modifiez le fichier CSV exporté (changez les prix dans la colonne "Prix")
+1. Modifiez le fichier CSV exporté (changez les prix dans la colonne "Prix" ou "Price")
 2. Sur la page d'accueil, cliquez sur **Importer CSV**
 3. Sélectionnez votre fichier CSV modifié
 4. Cliquez sur **Importer et mettre à jour**
 5. Consultez les résultats de l'import
+
+**Note** : L'import détecte automatiquement le format de votre fichier CSV (standard ou avec déclinaisons) et met à jour les prix en conséquence.
 
 ## 📁 Structure du projet
 
@@ -107,6 +130,9 @@ new PrestaShopAPI($shopUrl, $apiKey, $debug = false)
 // Tester la connexion
 $api->testConnection(): bool
 
+// Vérifier les permissions de la clé API
+$api->checkPermissions(): array
+
 // Récupérer toutes les catégories
 $api->getAllCategories(): array
 
@@ -116,10 +142,22 @@ $api->getAllProducts($categoryId = 0, $limit = 50): array
 // Mettre à jour le prix d'un produit
 $api->updateProductPrice($productId, $newPrice): bool
 
-// Exporter vers CSV (avec filtre optionnel par catégorie)
+// Récupérer les déclinaisons d'un produit
+$api->getProductCombinations($productId): array
+
+// Récupérer tous les produits avec leurs déclinaisons
+$api->getAllProductsWithCombinations($categoryId = 0): array
+
+// Mettre à jour le prix d'une déclinaison
+$api->updateCombinationPrice($combinationId, $newPrice): bool
+
+// Exporter vers CSV (produits simples, avec filtre optionnel par catégorie)
 $api->exportToCSV($filename, $categoryId = 0): array
 
-// Importer depuis CSV
+// Exporter vers CSV avec déclinaisons (avec filtre optionnel par catégorie)
+$api->exportCombinationsToCSV($filename, $categoryId = 0): array
+
+// Importer depuis CSV (détection automatique du format)
 $api->importFromCSV($filename): array
 ```
 
@@ -133,17 +171,30 @@ $api = new PrestaShopAPI('https://monsite.com', 'VOTRE_CLE_API');
 // Récupérer toutes les catégories
 $categories = $api->getAllCategories();
 
-// Export de tous les produits
+// Export standard de tous les produits
 $result = $api->exportToCSV('produits.csv');
 echo "Produits exportés : " . $result['count'];
 
-// Export d'une catégorie spécifique
-$result = $api->exportToCSV('produits_categorie_5.csv', 5);
+// Export avec déclinaisons
+$result = $api->exportCombinationsToCSV('produits_declinaisons.csv');
 echo "Produits exportés : " . $result['count'];
 
-// Import
+// Export d'une catégorie spécifique avec déclinaisons
+$result = $api->exportCombinationsToCSV('produits_cat5_declinaisons.csv', 5);
+echo "Produits exportés : " . $result['count'];
+
+// Import (détection automatique du format)
 $results = $api->importFromCSV('produits_modifies.csv');
 echo "Produits mis à jour : " . $results['success'];
+
+// Récupérer les déclinaisons d'un produit
+$combinations = $api->getProductCombinations(1158);
+foreach ($combinations as $combo) {
+    echo "Déclinaison {$combo['id']}: {$combo['combination_name']} - {$combo['price']}€\n";
+}
+
+// Mettre à jour le prix d'une déclinaison
+$api->updateCombinationPrice(42, 19.99);
 ```
 
 ## 📊 Format CSV
@@ -153,8 +204,9 @@ echo "Produits mis à jour : " . $results['success'];
 - **Séparateur** : Point-virgule (`;`)
 - **Encodage** : UTF-8
 - **Première ligne** : En-têtes obligatoires
+- **Détection automatique** : L'import reconnaît automatiquement le format
 
-### Colonnes
+### Format standard (produits simples)
 
 | Colonne    | Type   | Description                    | Modifiable à l'import |
 |------------|--------|--------------------------------|----------------------|
@@ -163,7 +215,7 @@ echo "Produits mis à jour : " . $results['success'];
 | Référence  | string | Référence du produit           | ❌ Non               |
 | Prix       | float  | Prix HT du produit             | ✅ Oui               |
 
-### Exemple valide
+**Exemple valide :**
 
 ```csv
 ID;Nom;Référence;Prix
@@ -171,6 +223,32 @@ ID;Nom;Référence;Prix
 2;Pantalon Bleu;PAN-002;45.50
 3;Chaussures Noires;CHU-003;89.99
 ```
+
+### Format avec déclinaisons
+
+| Colonne           | Type   | Description                            | Modifiable à l'import |
+|-------------------|--------|----------------------------------------|----------------------|
+| ProductID         | int    | Identifiant du produit                 | ❌ Non               |
+| CombinationID     | int    | Identifiant de la déclinaison (0 si aucune) | ❌ Non               |
+| ProductName       | string | Nom du produit                         | ❌ Non               |
+| CombinationName   | string | Nom de la déclinaison (ex: "Rouge - S") | ❌ Non               |
+| Reference         | string | Référence de la déclinaison            | ❌ Non               |
+| Price             | float  | Prix HT de la déclinaison              | ✅ Oui               |
+
+**Exemple valide :**
+
+```csv
+ProductID;CombinationID;ProductName;CombinationName;Reference;Price
+1158;42;T-Shirt;Rouge - S;TSH-R-S;19.99
+1158;43;T-Shirt;Rouge - M;TSH-R-M;21.99
+1158;44;T-Shirt;Bleu - S;TSH-B-S;19.99
+1159;0;Pantalon Simple;-;PAN-001;45.50
+```
+
+**Notes importantes :**
+- `CombinationID = 0` indique un produit sans déclinaisons
+- Chaque ligne représente une déclinaison unique
+- Un produit avec 3 tailles et 2 couleurs générera 6 lignes (3 × 2)
 
 ## ⚙️ Configuration
 
@@ -247,10 +325,11 @@ ini_set('max_execution_time', 300);
 
 Pour la clé API, activez uniquement :
 
-| Ressource  | GET | POST | PUT | DELETE |
-|------------|-----|------|-----|--------|
-| products   | ✅  | ❌   | ✅  | ❌     |
-| categories | ✅  | ❌   | ❌  | ❌     |
+| Ressource    | GET | POST | PUT | DELETE |
+|--------------|-----|------|-----|--------|
+| products     | ✅  | ❌   | ✅  | ❌     |
+| combinations | ✅  | ❌   | ✅  | ❌     |
+| categories   | ✅  | ❌   | ❌  | ❌     |
 
 ### Comment créer la clé API
 
@@ -262,6 +341,7 @@ Pour la clé API, activez uniquement :
    - **Statut** : Activé
 5. Dans **Permissions** :
    - Recherchez "products" → Cochez **GET** et **PUT**
+   - Recherchez "combinations" → Cochez **GET** et **PUT**
    - Recherchez "categories" → Cochez **GET**
 6. Cliquez sur **Enregistrer**
 7. Copiez la clé générée
@@ -277,12 +357,12 @@ Pour la clé API, activez uniquement :
 
 ## 🆕 Fonctionnalités futures
 
-- [ ] Gestion des déclinaisons de produits
+- [x] Gestion des déclinaisons de produits ✅ **Implémenté**
 - [ ] Mise à jour de plusieurs champs (stock, description, etc.)
 - [ ] Import de nouveaux produits
 - [ ] Historique des imports
 - [ ] Validation avancée des données
-- [ ] Mode batch pour les grosses boutiques
+- [ ] Export/Import des images produits
 
 ## 📄 Licence
 
@@ -308,6 +388,23 @@ Pour toute question ou problème :
 
 ---
 
-**Version** : 1.0
+**Version** : 1.1
 **Date** : Décembre 2024
 **Compatible** : PrestaShop 8.2
+
+## 📝 Changelog
+
+### Version 1.1 (Décembre 2024)
+- ✨ Ajout de la gestion complète des déclinaisons de produits
+- ✨ Export CSV avec déclinaisons (ProductID, CombinationID, etc.)
+- ✨ Import CSV avec détection automatique du format
+- ✨ Mise à jour individuelle du prix de chaque déclinaison
+- 🔧 Amélioration de l'interface utilisateur avec choix du type d'export
+- 📖 Documentation complète des nouveaux formats CSV
+
+### Version 1.0 (Décembre 2024)
+- 🎉 Version initiale
+- ✨ Export CSV des produits simples
+- ✨ Import CSV pour mise à jour des prix
+- ✨ Filtre par catégorie
+- ✨ Pagination optimisée pour les gros catalogues

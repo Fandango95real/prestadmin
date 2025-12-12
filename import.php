@@ -138,21 +138,37 @@ if (isset($_POST['import']) && isset($_FILES['csv_file'])) {
                 </form>
 
                 <div class="info-card" style="margin-top: 30px;">
-                    <h3>📋 Format du fichier CSV requis</h3>
-                    <p>Votre fichier CSV doit respecter le format suivant:</p>
+                    <h3>📋 Formats CSV acceptés</h3>
+                    <p>L'import détecte automatiquement le format de votre fichier. Deux formats sont supportés:</p>
 
-                    <div class="code-block">
-                        ID;Nom;Référence;Prix<br>
-                        1;Produit exemple;REF001;19.99<br>
-                        2;Autre produit;REF002;29.99<br>
-                        3;Troisième produit;REF003;39.50
+                    <div style="margin-top: 15px;">
+                        <h4 style="margin-bottom: 5px;">📦 Format standard (produits simples)</h4>
+                        <div class="code-block">
+                            ID;Nom;Référence;Prix<br>
+                            1;Produit exemple;REF001;19.99<br>
+                            2;Autre produit;REF002;29.99
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 15px;">
+                        <h4 style="margin-bottom: 5px;">🎨 Format avec déclinaisons</h4>
+                        <div class="code-block">
+                            ProductID;CombinationID;ProductName;CombinationName;Reference;Price<br>
+                            1158;42;T-Shirt;Rouge - S;REF-1158-R-S;19.99<br>
+                            1158;43;T-Shirt;Rouge - M;REF-1158-R-M;21.99<br>
+                            1159;0;Produit simple;-;REF-1159;15.00
+                        </div>
+                        <small style="margin-top: 5px; display: block;">
+                            <strong>Note:</strong> CombinationID = 0 pour les produits sans déclinaisons
+                        </small>
                     </div>
 
                     <ul style="margin-left: 20px; margin-top: 15px;">
                         <li><strong>Séparateur:</strong> Point-virgule (;)</li>
-                        <li><strong>Première ligne:</strong> En-têtes (ID;Nom;Référence;Prix)</li>
+                        <li><strong>Première ligne:</strong> En-têtes obligatoires</li>
                         <li><strong>Prix:</strong> Utilisez le point comme séparateur décimal</li>
-                        <li><strong>Important:</strong> Seule la colonne "Prix" sera modifiée</li>
+                        <li><strong>Important:</strong> Seule la colonne "Prix" ou "Price" sera modifiée</li>
+                        <li><strong>Détection automatique:</strong> Le format est reconnu selon les colonnes de l'en-tête</li>
                     </ul>
                 </div>
 
@@ -166,6 +182,7 @@ if (isset($_POST['import']) && isset($_FILES['csv_file'])) {
                 <li>Il est recommandé de faire un export avant l'import pour sauvegarder vos données</li>
                 <li>Vérifiez bien le format de votre fichier CSV avant l'import</li>
                 <li>Les prix sont en Hors Taxes (HT)</li>
+                <li><strong>Déclinaisons:</strong> Le prix de chaque déclinaison peut être mis à jour individuellement</li>
                 <li>L'opération peut prendre plusieurs secondes selon le nombre de produits</li>
             </ul>
         </div>

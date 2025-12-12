@@ -31,6 +31,7 @@ if (isset($_POST['export'])) {
         $api = new PrestaShopAPI($_SESSION['shop_url'], $_SESSION['api_key'], false);
 
         $categoryId = isset($_POST['category_id']) ? intval($_POST['category_id']) : 0;
+        $exportType = isset($_POST['export_type']) ? $_POST['export_type'] : 'standard';
 
         // Génère le fichier CSV
         $filename = 'products_' . date('Y-m-d_H-i-s') . '.csv';
@@ -50,7 +51,12 @@ if (isset($_POST['export'])) {
             throw new Exception("Le dossier exports n'est pas accessible en écriture. Permissions actuelles: " . substr(sprintf('%o', fileperms($exportsDir)), -4));
         }
 
-        $result = $api->exportToCSV($filepath, $categoryId);
+        // Choix du type d'export
+        if ($exportType === 'combinations') {
+            $result = $api->exportCombinationsToCSV($filepath, $categoryId);
+        } else {
+            $result = $api->exportToCSV($filepath, $categoryId);
+        }
 
         if ($result['count'] == 0) {
             $messageType = 'error';
@@ -114,6 +120,21 @@ if (isset($_POST['export'])) {
                     <small>Choisissez une catégorie spécifique ou exportez tous les produits</small>
                 </div>
 
+                <div class="form-group" style="margin-top: 20px;">
+                    <label>Type d'export</label>
+                    <div style="margin-top: 10px;">
+                        <label style="display: block; margin-bottom: 10px; cursor: pointer;">
+                            <input type="radio" name="export_type" value="standard" checked style="margin-right: 8px;">
+                            <strong>Export standard</strong> - Produits simples uniquement (ID, Nom, Référence, Prix)
+                        </label>
+                        <label style="display: block; cursor: pointer;">
+                            <input type="radio" name="export_type" value="combinations" style="margin-right: 8px;">
+                            <strong>Export avec déclinaisons</strong> - Inclut toutes les déclinaisons de produits (Taille, Couleur, etc.)
+                        </label>
+                    </div>
+                    <small>Choisissez "avec déclinaisons" pour gérer finement les prix de chaque variante</small>
+                </div>
+
                 <button type="submit" name="export" class="btn btn-success">
                     📥 Télécharger le fichier CSV
                 </button>
@@ -121,13 +142,34 @@ if (isset($_POST['export'])) {
 
             <div class="info-card" style="margin-top: 30px;">
                 <h3>ℹ️ Informations sur l'export</h3>
-                <p>Le fichier CSV contiendra les colonnes suivantes:</p>
-                <ul style="margin-left: 20px; margin-top: 10px;">
-                    <li><strong>ID:</strong> Identifiant unique du produit</li>
-                    <li><strong>Nom:</strong> Nom du produit</li>
-                    <li><strong>Référence:</strong> Référence du produit</li>
-                    <li><strong>Prix:</strong> Prix de vente (HT)</li>
-                </ul>
+
+                <div style="margin-bottom: 20px;">
+                    <h4 style="margin-bottom: 10px;">📦 Export standard</h4>
+                    <p>Le fichier CSV contiendra les colonnes suivantes:</p>
+                    <ul style="margin-left: 20px; margin-top: 5px;">
+                        <li><strong>ID:</strong> Identifiant unique du produit</li>
+                        <li><strong>Nom:</strong> Nom du produit</li>
+                        <li><strong>Référence:</strong> Référence du produit</li>
+                        <li><strong>Prix:</strong> Prix de vente (HT)</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h4 style="margin-bottom: 10px;">🎨 Export avec déclinaisons</h4>
+                    <p>Le fichier CSV contiendra les colonnes suivantes:</p>
+                    <ul style="margin-left: 20px; margin-top: 5px;">
+                        <li><strong>ProductID:</strong> Identifiant unique du produit</li>
+                        <li><strong>CombinationID:</strong> Identifiant de la déclinaison (0 pour produit simple)</li>
+                        <li><strong>ProductName:</strong> Nom du produit</li>
+                        <li><strong>CombinationName:</strong> Nom de la déclinaison (ex: "Rouge - S")</li>
+                        <li><strong>Reference:</strong> Référence de la déclinaison</li>
+                        <li><strong>Price:</strong> Prix de vente (HT)</li>
+                    </ul>
+                    <p style="margin-top: 10px; padding: 10px; background: #f0f8ff; border-left: 3px solid #3498db;">
+                        <strong>Note:</strong> Ce format permet de gérer les prix fixes et relatifs de chaque déclinaison
+                    </p>
+                </div>
+
                 <p style="margin-top: 15px;">
                     <strong>Format:</strong> CSV avec séparateur point-virgule (;)<br>
                     <strong>Encodage:</strong> UTF-8
@@ -145,8 +187,10 @@ if (isset($_POST['export'])) {
             <ul style="margin-left: 20px; margin-top: 10px;">
                 <li>Pour les boutiques avec beaucoup de produits, exportez par catégorie</li>
                 <li>Vous pouvez modifier les prix dans le fichier CSV avec Excel ou LibreOffice</li>
-                <li>Ne modifiez pas les colonnes ID, Nom et Référence</li>
+                <li>Ne modifiez pas les colonnes ID, ProductID, CombinationID, Nom et Référence</li>
                 <li>Utilisez le point comme séparateur décimal pour les prix (ex: 19.99)</li>
+                <li><strong>Export avec déclinaisons:</strong> Un produit avec 3 tailles et 2 couleurs générera 6 lignes dans le CSV</li>
+                <li><strong>Produits simples dans export déclinaisons:</strong> Ils apparaîtront avec CombinationID = 0</li>
                 <li>Après modification, utilisez la fonction "Importer" pour mettre à jour les prix</li>
             </ul>
         </div>
