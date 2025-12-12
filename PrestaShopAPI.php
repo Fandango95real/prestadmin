@@ -352,6 +352,7 @@ class PrestaShopAPI {
             }
 
             $productName = isset($result->product->name->language[0]) ? (string)$result->product->name->language[0] : '';
+            $productPrice = isset($result->product->price) ? floatval($result->product->price) : 0.0;
 
             // Vérifie si le produit a des déclinaisons
             if (!isset($result->product->associations->combinations->combination)) {
@@ -398,19 +399,27 @@ class PrestaShopAPI {
                             $combName = implode(' - ', $namesParts);
                         }
 
-                        $price = (string)$c->price;
-                        $reference = (string)$c->reference;
+                        // Le prix dans l'API est l'impact (différence) par rapport au prix du produit
+                        $priceImpact = isset($c->price) ? floatval($c->price) : 0.0;
+                        // Prix final = prix produit + impact
+                        $finalPrice = $productPrice + $priceImpact;
+
+                        $reference = isset($c->reference) ? (string)$c->reference : '';
 
                         $combinations[] = [
                             'id' => $combinationId,
                             'product_name' => $productName,
                             'combination_name' => $combName,
                             'reference' => $reference,
-                            'price' => $price
+                            'price' => number_format($finalPrice, 6, '.', ''),
+                            'price_impact' => number_format($priceImpact, 6, '.', '')
                         ];
                     }
                 } catch (Exception $e) {
-                    // Ignore les erreurs sur les déclinaisons individuelles
+                    // Log l'erreur mais continue pour ne pas perdre les autres déclinaisons
+                    if ($this->debug) {
+                        echo "Erreur déclinaison $combinationId: " . $e->getMessage() . "\n";
+                    }
                     continue;
                 }
             }
@@ -477,7 +486,7 @@ class PrestaShopAPI {
     /**
      * Met à jour le prix d'une déclinaison
      * @param int $combinationId ID de la déclinaison
-     * @param float $newPrice Nouveau prix (fixe ou impact selon PrestaShop)
+     * @param float $newPrice Nouveau prix FINAL (pas l'impact)
      * @return bool
      */
     public function updateCombinationPrice($combinationId, $newPrice) {
@@ -489,8 +498,22 @@ class PrestaShopAPI {
                 throw new Exception("Déclinaison non trouvée");
             }
 
-            // Modifie le prix
-            $result->combination->price = $newPrice;
+            $combo = $result->combination;
+            $productId = (string)$combo->id_product;
+
+            // Récupère le prix du produit parent
+            $productResult = $this->makeRequest("products/$productId", ['display' => '[price]']);
+            if (!$productResult || !isset($productResult->product->price)) {
+                throw new Exception("Prix du produit parent non trouvé");
+            }
+
+            $productPrice = floatval($productResult->product->price);
+
+            // Calcule l'impact de prix (différence par rapport au produit)
+            $priceImpact = $newPrice - $productPrice;
+
+            // Modifie le prix (impact)
+            $result->combination->price = number_format($priceImpact, 6, '.', '');
 
             // Convertit en XML
             $xml = $result->asXML();
