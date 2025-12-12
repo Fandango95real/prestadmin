@@ -362,17 +362,12 @@ class PrestaShopAPI {
                 return $combinations;
             }
 
-            // SimpleXML ne retourne jamais un array natif PHP
-            // On doit utiliser iterator_to_array pour convertir les multiples éléments
-            $combosXml = $combosResult->combinations->combination;
+            // SimpleXML a un comportement imprévisible avec count() et les itérateurs
+            // La méthode la plus fiable est d'utiliser xpath() qui retourne TOUJOURS un array
+            $combos = $combosResult->combinations->xpath('combination');
 
-            // Vérifier s'il y a plusieurs éléments ou un seul
-            if (count($combosXml) > 1) {
-                // Plusieurs déclinaisons : convertir en tableau
-                $combos = iterator_to_array($combosXml);
-            } else {
-                // Une seule déclinaison
-                $combos = [$combosXml];
+            if (empty($combos)) {
+                return $combinations;
             }
 
             foreach ($combos as $combo) {
@@ -383,13 +378,11 @@ class PrestaShopAPI {
                     // Récupère le nom de la déclinaison
                     $combName = '';
                     if (isset($c->associations->product_option_values->product_option_value)) {
-                        $optionValuesXml = $c->associations->product_option_values->product_option_value;
+                        // Utiliser xpath pour obtenir un array fiable
+                        $optionValues = $c->associations->product_option_values->xpath('product_option_value');
 
-                        // Même traitement SimpleXML que pour les combinations
-                        if (count($optionValuesXml) > 1) {
-                            $optionValues = iterator_to_array($optionValuesXml);
-                        } else {
-                            $optionValues = [$optionValuesXml];
+                        if (empty($optionValues)) {
+                            $optionValues = [];
                         }
 
                         $namesParts = [];
