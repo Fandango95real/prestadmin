@@ -689,7 +689,7 @@ class PrestaShopAPI {
                     $item['product_name'],
                     $item['combination_name'],
                     $item['reference'],
-                    $item['price']
+                    str_replace('.', ',', $item['price']) // Format français avec virgule
                 ], ';');
             }
 
@@ -736,7 +736,7 @@ class PrestaShopAPI {
                     $product['id'],
                     $product['name'],
                     $product['reference'],
-                    $product['price']
+                    str_replace('.', ',', $product['price']) // Format français avec virgule
                 ], ';');
             }
 
@@ -805,13 +805,16 @@ class PrestaShopAPI {
                     $combinationId = trim($data[1]);
                     $price = trim($data[5]);
 
+                    // Normalise le format du prix (virgule française -> point anglais)
+                    $price = str_replace(',', '.', $price);
+
                     // Valide les données
                     if (empty($productId) || !is_numeric($productId)) {
                         $results['errors'][] = "Ligne " . ($results['total'] + 1) . ": ProductID invalide";
                         continue;
                     }
 
-                    if (!is_numeric($price) && !preg_match('/^[+-]\d+(\.\d+)?$/', $price)) {
+                    if (!is_numeric($price) && !preg_match('/^[+-]?\d+(\.\d+)?$/', $price)) {
                         $results['errors'][] = "Ligne " . ($results['total'] + 1) . ": prix invalide";
                         continue;
                     }
@@ -841,6 +844,9 @@ class PrestaShopAPI {
 
                     $id = trim($data[0]);
                     $price = trim($data[3]);
+
+                    // Normalise le format du prix (virgule française -> point anglais)
+                    $price = str_replace(',', '.', $price);
 
                     // Valide les données
                     if (empty($id) || !is_numeric($id)) {
