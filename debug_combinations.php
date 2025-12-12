@@ -26,14 +26,55 @@ echo "Création de l'instance API...\n";
 $api = new PrestaShopAPI($_SESSION['shop_url'], $_SESSION['api_key'], true);
 echo "✓ Instance API créée\n\n";
 
-echo "=== Étape 1: Récupération du produit 1158 ===\n\n";
+echo "=== Test de la méthode getProductCombinations(1158) ===\n\n";
 try {
-    echo "Envoi de la requête à l'API...\n";
+    echo "Appel de getProductCombinations(1158)...\n";
     flush(); // Force l'affichage immédiat
 
-    $result = $api->makeRequest("products/1158");
+    $combinations = $api->getProductCombinations(1158);
 
-    echo "✓ Réponse reçue\n";
+    echo "✓ Méthode exécutée avec succès\n\n";
+
+    if (empty($combinations)) {
+        echo "⚠️ AUCUNE déclinaison retournée !\n\n";
+        echo "Cela peut signifier :\n";
+        echo "  - Le produit n'a vraiment aucune déclinaison\n";
+        echo "  - Une erreur s'est produite silencieusement dans getProductCombinations()\n";
+        echo "  - Les permissions combinations ne sont pas activées\n\n";
+    } else {
+        echo "✅ Nombre de déclinaisons trouvées: " . count($combinations) . "\n\n";
+
+        foreach ($combinations as $index => $combo) {
+            echo "--- Déclinaison #" . ($index + 1) . " ---\n";
+            echo "  ID: " . $combo['id'] . "\n";
+            echo "  Nom produit: " . $combo['product_name'] . "\n";
+            echo "  Nom déclinaison: " . $combo['combination_name'] . "\n";
+            echo "  Référence: " . $combo['reference'] . "\n";
+            echo "  Prix final: " . $combo['price'] . " €\n";
+            echo "  Impact prix: " . $combo['price_impact'] . " €\n";
+            echo "\n";
+        }
+    }
+
+} catch (Exception $e) {
+    echo "❌ ERREUR: " . $e->getMessage() . "\n\n";
+    echo "Stack trace:\n";
+    echo $e->getTraceAsString() . "\n";
+}
+
+echo "\n=== Test direct via reflexion (accès aux méthodes privées) ===\n\n";
+
+try {
+    echo "Utilisation de ReflectionClass pour accéder à makeRequest()...\n";
+
+    $reflection = new ReflectionClass($api);
+    $method = $reflection->getMethod('makeRequest');
+    $method->setAccessible(true);
+
+    echo "Récupération du produit 1158...\n";
+    $result = $method->invoke($api, "products/1158");
+
+    echo "✓ Réponse reçue\n\n";
 
     if ($result && isset($result->product)) {
         echo "Produit trouvé: " . $result->product->name->language[0] . "\n";
