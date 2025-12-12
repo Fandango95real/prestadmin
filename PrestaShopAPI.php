@@ -503,6 +503,10 @@ class PrestaShopAPI {
             $combo = $result->combination;
             $productId = (string)$combo->id_product;
 
+            // Sauvegarde les dates originales pour éviter que le produit soit marqué comme "nouveau"
+            $dateAdd = isset($result->combination->date_add) ? (string)$result->combination->date_add : null;
+            $dateUpd = isset($result->combination->date_upd) ? (string)$result->combination->date_upd : null;
+
             // Récupère le prix du produit parent
             $productResult = $this->makeRequest("products/$productId", ['display' => '[price]']);
             if (!$productResult || !isset($productResult->product->price)) {
@@ -516,6 +520,14 @@ class PrestaShopAPI {
 
             // Modifie le prix (impact)
             $result->combination->price = number_format($priceImpact, 6, '.', '');
+
+            // Restaure les dates originales pour préserver le statut du produit
+            if ($dateAdd) {
+                $result->combination->date_add = $dateAdd;
+            }
+            if ($dateUpd) {
+                $result->combination->date_upd = $dateUpd;
+            }
 
             // Convertit en XML
             $xml = $result->asXML();
@@ -553,6 +565,10 @@ class PrestaShopAPI {
 
             $oldPrice = (string)$result->product->price;
 
+            // Sauvegarde les dates originales pour éviter que le produit soit marqué comme "nouveau"
+            $dateAdd = isset($result->product->date_add) ? (string)$result->product->date_add : null;
+            $dateUpd = isset($result->product->date_upd) ? (string)$result->product->date_upd : null;
+
             // Modifie le prix
             $result->product->price = $newPrice;
 
@@ -561,15 +577,21 @@ class PrestaShopAPI {
                 'manufacturer_name',
                 'quantity',
                 'position_in_category',
-                'position',
-                'date_add',
-                'date_upd'
+                'position'
             ];
 
             foreach ($readOnlyFields as $field) {
                 if (isset($result->product->$field)) {
                     unset($result->product->$field);
                 }
+            }
+
+            // Restaure les dates originales pour préserver le statut du produit
+            if ($dateAdd) {
+                $result->product->date_add = $dateAdd;
+            }
+            if ($dateUpd) {
+                $result->product->date_upd = $dateUpd;
             }
 
             // Convertit en XML
