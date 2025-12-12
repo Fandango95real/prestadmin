@@ -356,7 +356,7 @@ class PrestaShopAPI {
 
             // Récupère les déclinaisons via l'endpoint combinations avec filtre
             // Cette méthode retourne TOUTES les combinations contrairement aux associations du produit
-            $combosResult = $this->makeRequest("combinations", ['filter[id_product]' => "[$productId]", 'display' => 'full']);
+            $combosResult = $this->makeRequest("combinations", ['filter[id_product]' => $productId, 'display' => 'full']);
 
             if (!$combosResult || !isset($combosResult->combinations->combination)) {
                 return $combinations;
