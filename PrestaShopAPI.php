@@ -161,6 +161,25 @@ class PrestaShopAPI {
             $results['details']['categories_get'] = false;
         }
 
+        // Test 2.5: GET sur combinations
+        try {
+            $result = $this->makeRequest('combinations', ['limit' => 1]);
+            if ($result !== false) {
+                $results['details']['combinations_get'] = true;
+            } else {
+                $results['warnings'][] = "Permission GET manquante sur combinations (nécessaire pour les déclinaisons)";
+                $results['details']['combinations_get'] = false;
+            }
+        } catch (Exception $e) {
+            if (strpos($e->getMessage(), '401') !== false || strpos($e->getMessage(), '403') !== false) {
+                $results['warnings'][] = "Permission GET manquante sur combinations (nécessaire pour les déclinaisons)";
+                $results['details']['combinations_get'] = false;
+            } else {
+                // Autre erreur, on considère que la permission existe
+                $results['details']['combinations_get'] = 'unknown';
+            }
+        }
+
         // Test 3: PUT sur products (test sans modification réelle)
         try {
             // Récupère un produit
@@ -325,7 +344,8 @@ class PrestaShopAPI {
         $combinations = [];
 
         try {
-            $result = $this->makeRequest("products/$productId", ['display' => '[id,name,associations]']);
+            // Récupère le produit complet (sans display spécifique pour avoir les associations)
+            $result = $this->makeRequest("products/$productId");
 
             if (!$result || !isset($result->product)) {
                 return $combinations;
