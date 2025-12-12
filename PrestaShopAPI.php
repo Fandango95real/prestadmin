@@ -344,77 +344,75 @@ class PrestaShopAPI {
         $combinations = [];
 
         try {
-            // Récupère le produit complet (sans display spécifique pour avoir les associations)
-            $result = $this->makeRequest("products/$productId");
+            // Récupère le produit pour avoir le nom et le prix de base
+            $productResult = $this->makeRequest("products/$productId", ['display' => '[name,price]']);
 
-            if (!$result || !isset($result->product)) {
+            if (!$productResult || !isset($productResult->product)) {
                 return $combinations;
             }
 
-            $productName = isset($result->product->name->language[0]) ? (string)$result->product->name->language[0] : '';
-            $productPrice = isset($result->product->price) ? floatval($result->product->price) : 0.0;
+            $productName = isset($productResult->product->name->language[0]) ? (string)$productResult->product->name->language[0] : '';
+            $productPrice = isset($productResult->product->price) ? floatval($productResult->product->price) : 0.0;
 
-            // Vérifie si le produit a des déclinaisons
-            if (!isset($result->product->associations->combinations->combination)) {
+            // Récupère les déclinaisons via l'endpoint combinations avec filtre
+            // Cette méthode retourne TOUTES les combinations contrairement aux associations du produit
+            $combosResult = $this->makeRequest("combinations", ['filter[id_product]' => "[$productId]", 'display' => 'full']);
+
+            if (!$combosResult || !isset($combosResult->combinations->combination)) {
                 return $combinations;
             }
 
-            $combos = $result->product->associations->combinations->combination;
+            $combos = $combosResult->combinations->combination;
             // Si une seule déclinaison, l'API retourne un objet au lieu d'un array
             if (!is_array($combos)) {
                 $combos = [$combos];
             }
 
             foreach ($combos as $combo) {
-                $combinationId = (string)$combo->id;
-
-                // Récupère les détails de la déclinaison
                 try {
-                    $combDetails = $this->makeRequest("combinations/$combinationId");
+                    $c = $combo; // On a déjà tous les détails avec display=full
+                    $combinationId = (string)$c->id;
 
-                    if ($combDetails && isset($combDetails->combination)) {
-                        $c = $combDetails->combination;
-
-                        // Récupère le nom de la déclinaison
-                        $combName = '';
-                        if (isset($c->associations->product_option_values->product_option_value)) {
-                            $optionValues = $c->associations->product_option_values->product_option_value;
-                            if (!is_array($optionValues)) {
-                                $optionValues = [$optionValues];
-                            }
-
-                            $namesParts = [];
-                            foreach ($optionValues as $optVal) {
-                                $optValId = (string)$optVal->id;
-                                // Récupère le nom de la valeur d'option
-                                try {
-                                    $optValDetails = $this->makeRequest("product_option_values/$optValId", ['display' => '[name]']);
-                                    if ($optValDetails && isset($optValDetails->product_option_value->name->language[0])) {
-                                        $namesParts[] = (string)$optValDetails->product_option_value->name->language[0];
-                                    }
-                                } catch (Exception $e) {
-                                    // Ignore les erreurs de récupération de nom
-                                }
-                            }
-                            $combName = implode(' - ', $namesParts);
+                    // Récupère le nom de la déclinaison
+                    $combName = '';
+                    if (isset($c->associations->product_option_values->product_option_value)) {
+                        $optionValues = $c->associations->product_option_values->product_option_value;
+                        if (!is_array($optionValues)) {
+                            $optionValues = [$optionValues];
                         }
 
-                        // Le prix dans l'API est l'impact (différence) par rapport au prix du produit
-                        $priceImpact = isset($c->price) ? floatval($c->price) : 0.0;
-                        // Prix final = prix produit + impact
-                        $finalPrice = $productPrice + $priceImpact;
-
-                        $reference = isset($c->reference) ? (string)$c->reference : '';
-
-                        $combinations[] = [
-                            'id' => $combinationId,
-                            'product_name' => $productName,
-                            'combination_name' => $combName,
-                            'reference' => $reference,
-                            'price' => number_format($finalPrice, 6, '.', ''),
-                            'price_impact' => number_format($priceImpact, 6, '.', '')
-                        ];
+                        $namesParts = [];
+                        foreach ($optionValues as $optVal) {
+                            $optValId = (string)$optVal->id;
+                            // Récupère le nom de la valeur d'option
+                            try {
+                                $optValDetails = $this->makeRequest("product_option_values/$optValId", ['display' => '[name]']);
+                                if ($optValDetails && isset($optValDetails->product_option_value->name->language[0])) {
+                                    $namesParts[] = (string)$optValDetails->product_option_value->name->language[0];
+                                }
+                            } catch (Exception $e) {
+                                // Ignore les erreurs de récupération de nom
+                            }
+                        }
+                        $combName = implode(' - ', $namesParts);
                     }
+
+                    // Le prix dans l'API est l'impact (différence) par rapport au prix du produit
+                    $priceImpact = isset($c->price) ? floatval($c->price) : 0.0;
+                    // Prix final = prix produit + impact
+                    $finalPrice = $productPrice + $priceImpact;
+
+                    $reference = isset($c->reference) ? (string)$c->reference : '';
+
+                    $combinations[] = [
+                        'id' => $combinationId,
+                        'product_name' => $productName,
+                        'combination_name' => $combName,
+                        'reference' => $reference,
+                        'price' => number_format($finalPrice, 6, '.', ''),
+                        'price_impact' => number_format($priceImpact, 6, '.', '')
+                    ];
+
                 } catch (Exception $e) {
                     // Log l'erreur mais continue pour ne pas perdre les autres déclinaisons
                     if ($this->debug) {
