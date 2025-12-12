@@ -1,4 +1,9 @@
 <?php
+// Active l'affichage complet des erreurs PHP
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('log_errors', 1);
+
 session_start();
 
 // Vérifie que la connexion a été validée
@@ -6,17 +11,29 @@ if (!isset($_SESSION['connection_validated']) || $_SESSION['connection_validated
     die("Connexion non validée. Veuillez d'abord vous connecter via index.php");
 }
 
-require_once 'PrestaShopAPI.php';
-
 echo "<h1>Debug des déclinaisons du produit 1158</h1>";
 echo "<pre>";
 
+echo "Chargement de PrestaShopAPI.php...\n";
+require_once 'PrestaShopAPI.php';
+echo "✓ PrestaShopAPI.php chargé\n\n";
+
+echo "URL boutique: " . $_SESSION['shop_url'] . "\n";
+echo "Clé API: " . substr($_SESSION['api_key'], 0, 10) . "...\n\n";
+
 // Active le mode debug
+echo "Création de l'instance API...\n";
 $api = new PrestaShopAPI($_SESSION['shop_url'], $_SESSION['api_key'], true);
+echo "✓ Instance API créée\n\n";
 
 echo "=== Étape 1: Récupération du produit 1158 ===\n\n";
 try {
+    echo "Envoi de la requête à l'API...\n";
+    flush(); // Force l'affichage immédiat
+
     $result = $api->makeRequest("products/1158");
+
+    echo "✓ Réponse reçue\n";
 
     if ($result && isset($result->product)) {
         echo "Produit trouvé: " . $result->product->name->language[0] . "\n";
