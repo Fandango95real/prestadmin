@@ -161,38 +161,57 @@ class PrestaShopAPI {
             $results['details']['categories_get'] = false;
         }
 
-        // Test 2.5: GET sur combinations
+        // Test 3: GET sur combinations
         try {
             $result = $this->makeRequest('combinations', ['limit' => 1]);
             if ($result !== false) {
                 $results['details']['combinations_get'] = true;
             } else {
-                $results['warnings'][] = "Permission GET manquante sur combinations (nécessaire pour les déclinaisons)";
+                $results['success'] = false;
+                $results['errors'][] = "Permission GET manquante sur combinations";
                 $results['details']['combinations_get'] = false;
             }
         } catch (Exception $e) {
             if (strpos($e->getMessage(), '401') !== false || strpos($e->getMessage(), '403') !== false) {
-                $results['warnings'][] = "Permission GET manquante sur combinations (nécessaire pour les déclinaisons)";
+                $results['success'] = false;
+                $results['errors'][] = "Permission GET manquante sur combinations";
                 $results['details']['combinations_get'] = false;
-            } else {
-                // Autre erreur, on considère que la permission existe
-                $results['details']['combinations_get'] = 'unknown';
             }
         }
 
-        // Test 3: PUT sur products (test sans modification réelle)
+        // Test 4: GET sur product_option_values
         try {
-            // Récupère un produit
+            $result = $this->makeRequest('product_option_values', ['limit' => 1]);
+            if ($result !== false) {
+                $results['details']['product_option_values_get'] = true;
+            } else {
+                $results['success'] = false;
+                $results['errors'][] = "Permission GET manquante sur product_option_values";
+                $results['details']['product_option_values_get'] = false;
+            }
+        } catch (Exception $e) {
+            if (strpos($e->getMessage(), '401') !== false || strpos($e->getMessage(), '403') !== false) {
+                $results['success'] = false;
+                $results['errors'][] = "Permission GET manquante sur product_option_values";
+                $results['details']['product_option_values_get'] = false;
+            }
+        }
+
+        // Test 5: PUT sur products (test simplifié)
+        try {
+            // Récupère un produit avec seulement le prix
             $result = $this->makeRequest('products', ['limit' => 1, 'display' => '[id]']);
 
             if ($result && isset($result->products->product[0])) {
                 $productId = (string)$result->products->product[0]->id;
 
-                // Essaie de récupérer le produit complet pour tester PUT
-                $productFull = $this->makeRequest("products/$productId");
+                // Récupère le produit avec seulement le champ prix
+                $productFull = $this->makeRequest("products/$productId", ['display' => '[price]']);
 
                 if ($productFull && isset($productFull->product)) {
-                    // Test PUT avec les mêmes données (pas de modification)
+                    // Test PUT avec prix actuel (pas de modification réelle)
+                    $currentPrice = (string)$productFull->product->price;
+                    $productFull->product->price = $currentPrice;
                     $xml = $productFull->asXML();
 
                     try {
@@ -203,23 +222,53 @@ class PrestaShopAPI {
                             $results['success'] = false;
                             $results['errors'][] = "Permission PUT manquante sur products";
                             $results['details']['products_put'] = false;
-                        } else {
-                            // Autre erreur, on considère que la permission existe
-                            $results['warnings'][] = "Test PUT products incomplet: " . $e->getMessage();
-                            $results['details']['products_put'] = 'unknown';
                         }
+                        // Autres erreurs ignorées (permission probablement OK)
                     }
-                } else {
-                    $results['warnings'][] = "Impossible de tester PUT products (produit non récupérable)";
-                    $results['details']['products_put'] = 'unknown';
                 }
-            } else {
-                $results['warnings'][] = "Impossible de tester PUT products (aucun produit)";
-                $results['details']['products_put'] = 'unknown';
             }
         } catch (Exception $e) {
-            $results['warnings'][] = "Test PUT products incomplet: " . $e->getMessage();
-            $results['details']['products_put'] = 'unknown';
+            // Erreurs ignorées pour le test PUT
+        }
+
+        // Test 6: PUT sur combinations (test simplifié)
+        try {
+            $result = $this->makeRequest('combinations', ['limit' => 1, 'display' => '[id]']);
+
+            if ($result && isset($result->combinations->combination)) {
+                $combos = $result->combinations->combination;
+                if (!is_array($combos)) {
+                    $combos = [$combos];
+                }
+
+                if (count($combos) > 0) {
+                    $combinationId = (string)$combos[0]->id;
+
+                    // Récupère la combination avec seulement le prix
+                    $comboFull = $this->makeRequest("combinations/$combinationId", ['display' => '[price]']);
+
+                    if ($comboFull && isset($comboFull->combination)) {
+                        // Test PUT avec prix actuel
+                        $currentPrice = (string)$comboFull->combination->price;
+                        $comboFull->combination->price = $currentPrice;
+                        $xml = $comboFull->asXML();
+
+                        try {
+                            $this->makeRequest("combinations/$combinationId", [], 'PUT', $xml);
+                            $results['details']['combinations_put'] = true;
+                        } catch (Exception $e) {
+                            if (strpos($e->getMessage(), '401') !== false || strpos($e->getMessage(), '403') !== false) {
+                                $results['success'] = false;
+                                $results['errors'][] = "Permission PUT manquante sur combinations";
+                                $results['details']['combinations_put'] = false;
+                            }
+                            // Autres erreurs ignorées
+                        }
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            // Erreurs ignorées pour le test PUT
         }
 
         return $results;

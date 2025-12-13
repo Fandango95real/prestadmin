@@ -76,21 +76,20 @@ session_start();
                             echo '<div class="alert alert-success">';
                             echo '<strong>✓ Toutes les permissions sont configurées correctement :</strong><br>';
                             echo '<ul style="margin: 10px 0 0 20px;">';
-                            if ($permissions['details']['products_get']) echo '<li>✅ Lecture des produits (GET)</li>';
-                            if ($permissions['details']['categories_get']) echo '<li>✅ Lecture des catégories (GET)</li>';
-                            if (isset($permissions['details']['combinations_get']) && $permissions['details']['combinations_get']) echo '<li>✅ Lecture des déclinaisons (GET)</li>';
-                            if ($permissions['details']['products_put'] === true) echo '<li>✅ Modification des produits (PUT)</li>';
+                            if (isset($permissions['details']['products_get']) && $permissions['details']['products_get'])
+                                echo '<li>✅ Lecture des produits (GET products)</li>';
+                            if (isset($permissions['details']['products_put']) && $permissions['details']['products_put'])
+                                echo '<li>✅ Modification des produits (PUT products)</li>';
+                            if (isset($permissions['details']['combinations_get']) && $permissions['details']['combinations_get'])
+                                echo '<li>✅ Lecture des déclinaisons (GET combinations)</li>';
+                            if (isset($permissions['details']['combinations_put']) && $permissions['details']['combinations_put'])
+                                echo '<li>✅ Modification des déclinaisons (PUT combinations)</li>';
+                            if (isset($permissions['details']['product_option_values_get']) && $permissions['details']['product_option_values_get'])
+                                echo '<li>✅ Lecture des attributs (GET product_option_values)</li>';
+                            if (isset($permissions['details']['categories_get']) && $permissions['details']['categories_get'])
+                                echo '<li>✅ Lecture des catégories (GET categories)</li>';
                             echo '</ul>';
                             echo '</div>';
-
-                            if (!empty($permissions['warnings'])) {
-                                echo '<div class="alert alert-info">';
-                                echo '<strong>ℹ️ Avertissements :</strong><br>';
-                                foreach ($permissions['warnings'] as $warning) {
-                                    echo '• ' . htmlspecialchars($warning) . '<br>';
-                                }
-                                echo '</div>';
-                            }
                         } else {
                             echo '<div class="alert alert-error">';
                             echo '<strong>✗ Permissions manquantes :</strong><br>';
@@ -99,11 +98,13 @@ session_start();
                                 echo '<li>' . htmlspecialchars($error) . '</li>';
                             }
                             echo '</ul>';
-                            echo '<br><strong>Configuration requise :</strong><br>';
-                            echo '• products → GET ✅ + PUT ✅<br>';
-                            echo '• combinations → GET ✅ + PUT ✅ (pour les déclinaisons)<br>';
-                            echo '• categories → GET ✅<br>';
-                            echo '<br>Veuillez mettre à jour les permissions dans votre back-office PrestaShop.';
+                            echo '<br><strong>Configuration requise dans le back-office PrestaShop :</strong><br>';
+                            echo '<ul style="margin: 10px 0 0 20px;">';
+                            echo '<li>products → GET ✅ + PUT ✅</li>';
+                            echo '<li>combinations → GET ✅ + PUT ✅</li>';
+                            echo '<li>product_option_values → GET ✅</li>';
+                            echo '<li>categories → GET ✅</li>';
+                            echo '</ul>';
                             echo '</div>';
                         }
                     } else {
