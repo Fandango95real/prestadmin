@@ -84,6 +84,10 @@ session_start();
                                 echo '<li>✅ Lecture des déclinaisons (GET combinations)</li>';
                             if (isset($permissions['details']['combinations_put']) && $permissions['details']['combinations_put'])
                                 echo '<li>✅ Modification des déclinaisons (PUT combinations)</li>';
+                            if (isset($permissions['details']['stock_availables_get']) && $permissions['details']['stock_availables_get'])
+                                echo '<li>✅ Lecture des stocks (GET stock_availables)</li>';
+                            if (isset($permissions['details']['stock_availables_put']) && $permissions['details']['stock_availables_put'])
+                                echo '<li>✅ Modification des stocks (PUT stock_availables)</li>';
                             if (isset($permissions['details']['product_option_values_get']) && $permissions['details']['product_option_values_get'])
                                 echo '<li>✅ Lecture des attributs (GET product_option_values)</li>';
                             if (isset($permissions['details']['categories_get']) && $permissions['details']['categories_get'])
@@ -102,6 +106,7 @@ session_start();
                             echo '<ul style="margin: 10px 0 0 20px;">';
                             echo '<li>products → GET ✅ + PUT ✅</li>';
                             echo '<li>combinations → GET ✅ + PUT ✅</li>';
+                            echo '<li>stock_availables → GET ✅ + PUT ✅</li>';
                             echo '<li>product_option_values → GET ✅</li>';
                             echo '<li>categories → GET ✅</li>';
                             echo '</ul>';

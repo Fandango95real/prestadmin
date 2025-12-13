@@ -271,6 +271,64 @@ class PrestaShopAPI {
             // Erreurs ignorées pour le test PUT
         }
 
+        // Test 7: GET sur stock_availables
+        try {
+            $result = $this->makeRequest('stock_availables', ['limit' => 1]);
+            if ($result !== false) {
+                $results['details']['stock_availables_get'] = true;
+            } else {
+                $results['success'] = false;
+                $results['errors'][] = "Permission GET manquante sur stock_availables";
+                $results['details']['stock_availables_get'] = false;
+            }
+        } catch (Exception $e) {
+            if (strpos($e->getMessage(), '401') !== false || strpos($e->getMessage(), '403') !== false) {
+                $results['success'] = false;
+                $results['errors'][] = "Permission GET manquante sur stock_availables";
+                $results['details']['stock_availables_get'] = false;
+            }
+        }
+
+        // Test 8: PUT sur stock_availables (test simplifié)
+        try {
+            $result = $this->makeRequest('stock_availables', ['limit' => 1, 'display' => '[id]']);
+
+            if ($result && isset($result->stock_availables->stock_available)) {
+                $stocks = $result->stock_availables->stock_available;
+                if (!is_array($stocks)) {
+                    $stocks = [$stocks];
+                }
+
+                if (count($stocks) > 0) {
+                    $stockId = (string)$stocks[0]->id;
+
+                    // Récupère le stock avec seulement la quantité
+                    $stockFull = $this->makeRequest("stock_availables/$stockId", ['display' => '[quantity]']);
+
+                    if ($stockFull && isset($stockFull->stock_available)) {
+                        // Test PUT avec quantité actuelle
+                        $currentQty = (string)$stockFull->stock_available->quantity;
+                        $stockFull->stock_available->quantity = $currentQty;
+                        $xml = $stockFull->asXML();
+
+                        try {
+                            $this->makeRequest("stock_availables/$stockId", [], 'PUT', $xml);
+                            $results['details']['stock_availables_put'] = true;
+                        } catch (Exception $e) {
+                            if (strpos($e->getMessage(), '401') !== false || strpos($e->getMessage(), '403') !== false) {
+                                $results['success'] = false;
+                                $results['errors'][] = "Permission PUT manquante sur stock_availables";
+                                $results['details']['stock_availables_put'] = false;
+                            }
+                            // Autres erreurs ignorées
+                        }
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            // Erreurs ignorées pour le test PUT
+        }
+
         return $results;
     }
 
@@ -355,11 +413,18 @@ class PrestaShopAPI {
                         $reference = (string)$product->reference;
                         $price = (string)$product->price;
 
+                        // Récupère le stock
+                        $quantity = $this->getStock($id, 0);
+                        if ($quantity === false) {
+                            $quantity = 0;
+                        }
+
                         $products[] = [
                             'id' => $id,
                             'name' => $name,
                             'reference' => $reference,
-                            'price' => $price
+                            'price' => $price,
+                            'quantity' => $quantity
                         ];
                     }
                 }
@@ -457,13 +522,20 @@ class PrestaShopAPI {
 
                     $reference = isset($c->reference) ? (string)$c->reference : '';
 
+                    // Récupère le stock de la déclinaison
+                    $quantity = $this->getStock($productId, $combinationId);
+                    if ($quantity === false) {
+                        $quantity = 0;
+                    }
+
                     $combinations[] = [
                         'id' => $combinationId,
                         'product_name' => $productName,
                         'combination_name' => $combName,
                         'reference' => $reference,
                         'price' => number_format($finalPrice, 6, '.', ''),
-                        'price_impact' => number_format($priceImpact, 6, '.', '')
+                        'price_impact' => number_format($priceImpact, 6, '.', ''),
+                        'quantity' => $quantity
                     ];
 
                 } catch (Exception $e) {
@@ -509,6 +581,7 @@ class PrestaShopAPI {
                         'combination_name' => '',
                         'reference' => $product['reference'],
                         'price' => $product['price'],
+                        'quantity' => $product['quantity'],
                         'has_combinations' => 'no'
                     ];
                 } else {
@@ -521,6 +594,7 @@ class PrestaShopAPI {
                             'combination_name' => $combination['combination_name'],
                             'reference' => $combination['reference'],
                             'price' => $combination['price'],
+                            'quantity' => $combination['quantity'],
                             'has_combinations' => 'yes'
                         ];
                     }
@@ -728,7 +802,7 @@ class PrestaShopAPI {
             }
 
             // En-têtes CSV
-            fputcsv($fp, ['ProductID', 'CombinationID', 'ProductName', 'CombinationName', 'Reference', 'Price'], ';');
+            fputcsv($fp, ['ProductID', 'CombinationID', 'ProductName', 'CombinationName', 'Reference', 'Price', 'Quantité'], ';');
 
             // Données
             foreach ($items as $item) {
@@ -738,7 +812,8 @@ class PrestaShopAPI {
                     $item['product_name'],
                     $item['combination_name'],
                     $item['reference'],
-                    str_replace('.', ',', $item['price']) // Format français avec virgule
+                    str_replace('.', ',', $item['price']), // Format français avec virgule
+                    $item['quantity']
                 ], ';');
             }
 
@@ -777,7 +852,7 @@ class PrestaShopAPI {
             }
 
             // En-têtes CSV
-            fputcsv($fp, ['ID', 'Nom', 'Référence', 'Prix'], ';');
+            fputcsv($fp, ['ID', 'Nom', 'Référence', 'Prix', 'Quantité'], ';');
 
             // Données
             foreach ($products as $product) {
@@ -785,7 +860,8 @@ class PrestaShopAPI {
                     $product['id'],
                     $product['name'],
                     $product['reference'],
-                    str_replace('.', ',', $product['price']) // Format français avec virgule
+                    str_replace('.', ',', $product['price']), // Format français avec virgule
+                    $product['quantity']
                 ], ';');
             }
 
@@ -802,11 +878,13 @@ class PrestaShopAPI {
     }
 
     /**
-     * Importe et met à jour les prix depuis un fichier CSV
+     * Importe et met à jour les prix et/ou stocks depuis un fichier CSV
      * @param string $filename Nom du fichier CSV
+     * @param bool $updatePrice Mettre à jour les prix (défaut: true)
+     * @param bool $updateStock Mettre à jour les stocks (défaut: false)
      * @return array Résultats de l'import [success, errors]
      */
-    public function importFromCSV($filename) {
+    public function importFromCSV($filename, $updatePrice = true, $updateStock = false) {
         $results = [
             'success' => 0,
             'errors' => [],
@@ -844,18 +922,17 @@ class PrestaShopAPI {
                 $results['total']++;
 
                 if ($hasCombinations) {
-                    // Format avec déclinaisons: ProductID;CombinationID;ProductName;CombinationName;Reference;Price
-                    if (count($data) < 6) {
+                    // Format avec déclinaisons: ProductID;CombinationID;ProductName;CombinationName;Reference;Price;Quantité
+                    $minColumns = $updateStock ? 7 : 6;
+                    if (count($data) < $minColumns) {
                         $results['errors'][] = "Ligne " . ($results['total'] + 1) . ": données incomplètes";
                         continue;
                     }
 
                     $productId = trim($data[0]);
                     $combinationId = trim($data[1]);
-                    $price = trim($data[5]);
-
-                    // Normalise le format du prix (virgule française -> point anglais)
-                    $price = str_replace(',', '.', $price);
+                    $price = $updatePrice ? trim($data[5]) : null;
+                    $quantity = $updateStock && isset($data[6]) ? trim($data[6]) : null;
 
                     // Valide les données
                     if (empty($productId) || !is_numeric($productId)) {
@@ -863,20 +940,50 @@ class PrestaShopAPI {
                         continue;
                     }
 
-                    if (!is_numeric($price) && !preg_match('/^[+-]?\d+(\.\d+)?$/', $price)) {
-                        $results['errors'][] = "Ligne " . ($results['total'] + 1) . ": prix invalide";
-                        continue;
+                    // Valide le prix si nécessaire
+                    if ($updatePrice) {
+                        $price = str_replace(',', '.', $price);
+                        if (!is_numeric($price) && !preg_match('/^[+-]?\d+(\.\d+)?$/', $price)) {
+                            $results['errors'][] = "Ligne " . ($results['total'] + 1) . ": prix invalide";
+                            continue;
+                        }
+                    }
+
+                    // Valide la quantité si nécessaire
+                    if ($updateStock && $quantity !== null) {
+                        if (!is_numeric($quantity) || intval($quantity) < 0) {
+                            $results['errors'][] = "Ligne " . ($results['total'] + 1) . ": quantité invalide";
+                            continue;
+                        }
                     }
 
                     // Met à jour le produit ou la déclinaison
                     try {
+                        $updated = false;
+
                         if ($combinationId == '0' || empty($combinationId)) {
                             // Produit simple
-                            $this->updateProductPrice($productId, $price);
-                            $results['success']++;
+                            if ($updatePrice) {
+                                $this->updateProductPrice($productId, $price);
+                                $updated = true;
+                            }
+                            if ($updateStock && $quantity !== null) {
+                                $this->updateStock($productId, intval($quantity), 0);
+                                $updated = true;
+                            }
                         } else {
                             // Déclinaison
-                            $this->updateCombinationPrice($combinationId, $price);
+                            if ($updatePrice) {
+                                $this->updateCombinationPrice($combinationId, $price);
+                                $updated = true;
+                            }
+                            if ($updateStock && $quantity !== null) {
+                                $this->updateStock($productId, intval($quantity), intval($combinationId));
+                                $updated = true;
+                            }
+                        }
+
+                        if ($updated) {
                             $results['success']++;
                         }
                     } catch (Exception $e) {
@@ -885,17 +992,16 @@ class PrestaShopAPI {
                     }
 
                 } else {
-                    // Format simple: ID;Nom;Référence;Prix
-                    if (count($data) < 4) {
+                    // Format simple: ID;Nom;Référence;Prix;Quantité
+                    $minColumns = $updateStock ? 5 : 4;
+                    if (count($data) < $minColumns) {
                         $results['errors'][] = "Ligne " . ($results['total'] + 1) . ": données incomplètes";
                         continue;
                     }
 
                     $id = trim($data[0]);
-                    $price = trim($data[3]);
-
-                    // Normalise le format du prix (virgule française -> point anglais)
-                    $price = str_replace(',', '.', $price);
+                    $price = $updatePrice ? trim($data[3]) : null;
+                    $quantity = $updateStock && isset($data[4]) ? trim($data[4]) : null;
 
                     // Valide les données
                     if (empty($id) || !is_numeric($id)) {
@@ -903,15 +1009,39 @@ class PrestaShopAPI {
                         continue;
                     }
 
-                    if (empty($price) || !is_numeric($price)) {
-                        $results['errors'][] = "Ligne " . ($results['total'] + 1) . ": prix invalide";
-                        continue;
+                    // Valide le prix si nécessaire
+                    if ($updatePrice) {
+                        $price = str_replace(',', '.', $price);
+                        if (empty($price) || !is_numeric($price)) {
+                            $results['errors'][] = "Ligne " . ($results['total'] + 1) . ": prix invalide";
+                            continue;
+                        }
+                    }
+
+                    // Valide la quantité si nécessaire
+                    if ($updateStock && $quantity !== null) {
+                        if (!is_numeric($quantity) || intval($quantity) < 0) {
+                            $results['errors'][] = "Ligne " . ($results['total'] + 1) . ": quantité invalide";
+                            continue;
+                        }
                     }
 
                     // Met à jour le produit
                     try {
-                        $this->updateProductPrice($id, $price);
-                        $results['success']++;
+                        $updated = false;
+
+                        if ($updatePrice) {
+                            $this->updateProductPrice($id, $price);
+                            $updated = true;
+                        }
+                        if ($updateStock && $quantity !== null) {
+                            $this->updateStock($id, intval($quantity), 0);
+                            $updated = true;
+                        }
+
+                        if ($updated) {
+                            $results['success']++;
+                        }
                     } catch (Exception $e) {
                         $results['errors'][] = "Produit $id: " . $e->getMessage();
                     }
@@ -925,5 +1055,116 @@ class PrestaShopAPI {
         }
 
         return $results;
+    }
+
+    /**
+     * Récupère l'ID du stock_available pour un produit ou une déclinaison
+     * @param int $productId ID du produit
+     * @param int $combinationId ID de la déclinaison (0 pour produit simple)
+     * @return int|false ID du stock_available ou false si non trouvé
+     */
+    private function getStockAvailableId($productId, $combinationId = 0) {
+        try {
+            $filter = [
+                'filter[id_product]' => $productId,
+                'filter[id_product_attribute]' => $combinationId,
+                'display' => '[id]'
+            ];
+
+            $result = $this->makeRequest('stock_availables', $filter);
+
+            if ($result && isset($result->stock_availables->stock_available)) {
+                $stocks = $result->stock_availables->stock_available;
+
+                // Si plusieurs résultats, prendre le premier
+                if (is_array($stocks)) {
+                    return (int)$stocks[0]->id;
+                } else {
+                    return (int)$stocks->id;
+                }
+            }
+
+            return false;
+
+        } catch (Exception $e) {
+            if ($this->debug) {
+                echo "Erreur getStockAvailableId: " . $e->getMessage() . "\n";
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Récupère la quantité en stock d'un produit ou déclinaison
+     * @param int $productId ID du produit
+     * @param int $combinationId ID de la déclinaison (0 pour produit simple)
+     * @return int|false Quantité ou false si erreur
+     */
+    public function getStock($productId, $combinationId = 0) {
+        try {
+            $filter = [
+                'filter[id_product]' => $productId,
+                'filter[id_product_attribute]' => $combinationId,
+                'display' => '[quantity]'
+            ];
+
+            $result = $this->makeRequest('stock_availables', $filter);
+
+            if ($result && isset($result->stock_availables->stock_available)) {
+                $stocks = $result->stock_availables->stock_available;
+
+                if (is_array($stocks)) {
+                    return (int)$stocks[0]->quantity;
+                } else {
+                    return (int)$stocks->quantity;
+                }
+            }
+
+            return 0;
+
+        } catch (Exception $e) {
+            if ($this->debug) {
+                echo "Erreur getStock: " . $e->getMessage() . "\n";
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Met à jour la quantité en stock d'un produit ou déclinaison
+     * @param int $productId ID du produit
+     * @param int $quantity Nouvelle quantité
+     * @param int $combinationId ID de la déclinaison (0 pour produit simple)
+     * @return bool
+     */
+    public function updateStock($productId, $quantity, $combinationId = 0) {
+        try {
+            // Récupère l'ID du stock_available
+            $stockId = $this->getStockAvailableId($productId, $combinationId);
+
+            if ($stockId === false) {
+                throw new Exception("Stock non trouvé pour le produit $productId" .
+                    ($combinationId > 0 ? " / déclinaison $combinationId" : ""));
+            }
+
+            // Récupère le stock_available complet
+            $result = $this->makeRequest("stock_availables/$stockId");
+
+            if (!$result || !isset($result->stock_available)) {
+                throw new Exception("Impossible de récupérer le stock");
+            }
+
+            // Met à jour la quantité
+            $result->stock_available->quantity = (int)$quantity;
+
+            // Convertit en XML et met à jour
+            $xml = $result->asXML();
+            $this->makeRequest("stock_availables/$stockId", [], 'PUT', $xml);
+
+            return true;
+
+        } catch (Exception $e) {
+            throw new Exception("Erreur lors de la mise à jour du stock: " . $e->getMessage());
+        }
     }
 }

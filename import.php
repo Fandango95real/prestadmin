@@ -25,6 +25,15 @@ if (isset($_POST['import']) && isset($_FILES['csv_file'])) {
             throw new Exception('Erreur lors de l\'upload du fichier');
         }
 
+        // Récupère les options de mise à jour
+        $updatePrice = isset($_POST['update_price']) && $_POST['update_price'] == '1';
+        $updateStock = isset($_POST['update_stock']) && $_POST['update_stock'] == '1';
+
+        // Vérifie qu'au moins une option est sélectionnée
+        if (!$updatePrice && !$updateStock) {
+            throw new Exception('Vous devez sélectionner au moins une colonne à mettre à jour');
+        }
+
         $tmpFile = $_FILES['csv_file']['tmp_name'];
         $fileName = $_FILES['csv_file']['name'];
 
@@ -37,8 +46,8 @@ if (isset($_POST['import']) && isset($_FILES['csv_file'])) {
         // Crée l'instance API
         $api = new PrestaShopAPI($_SESSION['shop_url'], $_SESSION['api_key'], false);
 
-        // Importe le fichier
-        $results = $api->importFromCSV($tmpFile);
+        // Importe le fichier avec les options
+        $results = $api->importFromCSV($tmpFile, $updatePrice, $updateStock);
 
         if ($results['success'] > 0) {
             $messageType = 'success';
@@ -132,7 +141,22 @@ if (isset($_POST['import']) && isset($_FILES['csv_file'])) {
                         <small>Format accepté: CSV (séparateur point-virgule)</small>
                     </div>
 
-                    <button type="submit" name="import" class="btn btn-warning">
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label>Colonnes à mettre à jour</label>
+                        <div style="margin-top: 10px;">
+                            <label style="display: block; margin-bottom: 10px; cursor: pointer;">
+                                <input type="checkbox" name="update_price" id="update_price" value="1" checked style="margin-right: 8px;">
+                                <strong>Mettre à jour les prix</strong>
+                            </label>
+                            <label style="display: block; cursor: pointer;">
+                                <input type="checkbox" name="update_stock" id="update_stock" value="1" style="margin-right: 8px;">
+                                <strong>Mettre à jour les stocks</strong>
+                            </label>
+                        </div>
+                        <small>Sélectionnez au moins une option pour activer l'import</small>
+                    </div>
+
+                    <button type="submit" name="import" id="import_btn" class="btn btn-warning">
                         📤 Importer et mettre à jour
                     </button>
                 </form>
@@ -168,5 +192,33 @@ if (isset($_POST['import']) && isset($_FILES['csv_file'])) {
     <footer>
         <p>PrestaShop CSV Manager - Version 1.1</p>
     </footer>
+
+    <script>
+        // Gestion de l'activation/désactivation du bouton d'import
+        const updatePriceCheckbox = document.getElementById('update_price');
+        const updateStockCheckbox = document.getElementById('update_stock');
+        const importBtn = document.getElementById('import_btn');
+
+        if (updatePriceCheckbox && updateStockCheckbox && importBtn) {
+            function updateImportButtonState() {
+                const atLeastOneChecked = updatePriceCheckbox.checked || updateStockCheckbox.checked;
+                importBtn.disabled = !atLeastOneChecked;
+
+                if (!atLeastOneChecked) {
+                    importBtn.style.opacity = '0.5';
+                    importBtn.style.cursor = 'not-allowed';
+                } else {
+                    importBtn.style.opacity = '1';
+                    importBtn.style.cursor = 'pointer';
+                }
+            }
+
+            updatePriceCheckbox.addEventListener('change', updateImportButtonState);
+            updateStockCheckbox.addEventListener('change', updateImportButtonState);
+
+            // État initial
+            updateImportButtonState();
+        }
+    </script>
 </body>
 </html>
