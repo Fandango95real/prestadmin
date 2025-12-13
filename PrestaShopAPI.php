@@ -801,6 +801,9 @@ class PrestaShopAPI {
                 throw new Exception("Impossible de créer le fichier CSV '$filename'. Erreur: $errorMsg");
             }
 
+            // Ajoute le BOM UTF-8 pour Excel français
+            fprintf($fp, "\xEF\xBB\xBF");
+
             // En-têtes CSV
             fputcsv($fp, ['ProductID', 'CombinationID', 'ProductName', 'CombinationName', 'Reference', 'Price', 'Quantité'], ';');
 
@@ -850,6 +853,9 @@ class PrestaShopAPI {
                 $errorMsg = $error ? $error['message'] : 'Raison inconnue';
                 throw new Exception("Impossible de créer le fichier CSV '$filename'. Erreur: $errorMsg");
             }
+
+            // Ajoute le BOM UTF-8 pour Excel français
+            fprintf($fp, "\xEF\xBB\xBF");
 
             // En-têtes CSV
             fputcsv($fp, ['ID', 'Nom', 'Référence', 'Prix', 'Quantité'], ';');
