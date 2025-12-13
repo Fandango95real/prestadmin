@@ -172,13 +172,9 @@ if (isset($_POST['export'])) {
 
                 <p style="margin-top: 15px;">
                     <strong>Format:</strong> CSV avec séparateur point-virgule (;)<br>
-                    <strong>Encodage:</strong> UTF-8
+                    <strong>Encodage:</strong> UTF-8<br>
+                    <strong>Séparateur décimal:</strong> Virgule (,) - Format français compatible Excel
                 </p>
-            </div>
-
-            <div class="alert alert-info" style="margin-top: 20px;">
-                <strong>⚡ Optimisation:</strong> L'export utilise maintenant la pagination pour éviter les timeouts.
-                Même avec des milliers de produits, l'export devrait fonctionner correctement.
             </div>
         </div>
 
@@ -188,7 +184,7 @@ if (isset($_POST['export'])) {
                 <li>Pour les boutiques avec beaucoup de produits, exportez par catégorie</li>
                 <li>Vous pouvez modifier les prix dans le fichier CSV avec Excel ou LibreOffice</li>
                 <li>Ne modifiez pas les colonnes ID, ProductID, CombinationID, Nom et Référence</li>
-                <li>Utilisez le point comme séparateur décimal pour les prix (ex: 19.99)</li>
+                <li>Les prix utilisent la virgule comme séparateur décimal (format français)</li>
                 <li><strong>Export avec déclinaisons:</strong> Un produit avec 3 tailles et 2 couleurs générera 6 lignes dans le CSV</li>
                 <li><strong>Produits simples dans export déclinaisons:</strong> Ils apparaîtront avec CombinationID = 0</li>
                 <li>Après modification, utilisez la fonction "Importer" pour mettre à jour les prix</li>
