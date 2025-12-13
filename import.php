@@ -166,7 +166,7 @@ if (isset($_POST['import']) && isset($_FILES['csv_file'])) {
     </div>
 
     <footer>
-        <p>PrestaShop CSV Manager - Version 1.0</p>
+        <p>PrestaShop CSV Manager - Version 1.1</p>
     </footer>
 </body>
 </html>

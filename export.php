@@ -193,7 +193,7 @@ if (isset($_POST['export'])) {
     </div>
 
     <footer>
-        <p>PrestaShop CSV Manager - Version 1.0</p>
+        <p>PrestaShop CSV Manager - Version 1.1</p>
     </footer>
 </body>
 </html>

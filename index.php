@@ -146,17 +146,6 @@ session_start();
                 </form>
             </div>
         </div>
-
-        <div class="card info-card">
-            <h3>ℹ️ Format du fichier CSV</h3>
-            <p>Le fichier CSV doit contenir les colonnes suivantes (séparées par des points-virgules) :</p>
-            <div class="code-block">
-                ID;Nom;Référence;Prix<br>
-                1;Produit exemple;REF001;19.99<br>
-                2;Autre produit;REF002;29.99
-            </div>
-            <p><strong>Important:</strong> Seul le prix sera modifié lors de l'import. Les autres colonnes servent à identifier le produit.</p>
-        </div>
         <?php endif; ?>
 
         <div class="card help-card">
@@ -173,7 +162,7 @@ session_start();
     </div>
 
     <footer>
-        <p>PrestaShop CSV Manager - Version 1.0 - Compatible PrestaShop 8.2</p>
+        <p>PrestaShop CSV Manager - Version 1.1 - Compatible PrestaShop 8.2</p>
     </footer>
 
     <script>
