@@ -23,3 +23,14 @@ Thumbs.db
 # Temporaires
 tmp/
 temp/
+
+# Webhook
+webhook.php
+webhook.log
+
+# Config locale (si vous en avez)
+config.local.php
+
+# Exports
+exports/
+*.csv
