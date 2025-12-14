@@ -451,12 +451,12 @@ Pour toute question ou problème :
 ---
 
 **Version** : 1.2
-**Date** : Janvier 2025
+**Date** : Décembre 2025
 **Compatible** : PrestaShop 8.2
 
 ## 📝 Changelog
 
-### Version 1.2 (Janvier 2025)
+### Version 1.2 (Décembre 2025)
 - ✨ **Gestion des stocks** : Ajout colonne "Quantité" dans les exports CSV
 - ✨ **Import sélectif** : Checkboxes pour choisir de mettre à jour les prix et/ou les stocks
 - ✨ **Import par lots** : Traitement par lots de 25 produits pour éviter les timeouts
