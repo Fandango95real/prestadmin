@@ -1,68 +1,10 @@
 <?php
 session_start();
 
-// Augmente les timeouts pour éviter les erreurs 524
-set_time_limit(600); // 10 minutes
-ini_set('max_execution_time', 600);
-
 // Vérifie que la connexion a été validée
 if (!isset($_SESSION['connection_validated']) || $_SESSION['connection_validated'] !== true) {
     header('Location: index.php');
     exit;
-}
-
-require_once 'PrestaShopAPI.php';
-
-$message = '';
-$messageType = '';
-$results = null;
-$details = [];
-
-if (isset($_POST['import']) && isset($_FILES['csv_file'])) {
-    try {
-        // Vérifie le fichier uploadé
-        if ($_FILES['csv_file']['error'] !== UPLOAD_ERR_OK) {
-            throw new Exception('Erreur lors de l\'upload du fichier');
-        }
-
-        // Récupère les options de mise à jour
-        $updatePrice = isset($_POST['update_price']) && $_POST['update_price'] == '1';
-        $updateStock = isset($_POST['update_stock']) && $_POST['update_stock'] == '1';
-
-        // Vérifie qu'au moins une option est sélectionnée
-        if (!$updatePrice && !$updateStock) {
-            throw new Exception('Vous devez sélectionner au moins une colonne à mettre à jour');
-        }
-
-        $tmpFile = $_FILES['csv_file']['tmp_name'];
-        $fileName = $_FILES['csv_file']['name'];
-
-        // Vérifie l'extension
-        $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-        if ($ext !== 'csv') {
-            throw new Exception('Le fichier doit être au format CSV');
-        }
-
-        // Crée l'instance API
-        $api = new PrestaShopAPI($_SESSION['shop_url'], $_SESSION['api_key'], false);
-
-        // Importe le fichier avec les options
-        $results = $api->importFromCSV($tmpFile, $updatePrice, $updateStock);
-
-        if ($results['success'] > 0) {
-            $messageType = 'success';
-            $message = "✓ Import terminé avec succès ! {$results['success']} produit(s) mis à jour sur {$results['total']}.";
-        } else {
-            $messageType = 'error';
-            $message = "✗ Aucun produit n'a pu être mis à jour.";
-        }
-
-        $details = $results['errors'];
-
-    } catch (Exception $e) {
-        $messageType = 'error';
-        $message = 'Erreur: ' . $e->getMessage();
-    }
 }
 ?>
 <!DOCTYPE html>
@@ -77,57 +19,19 @@ if (isset($_POST['import']) && isset($_FILES['csv_file'])) {
     <div class="container">
         <header>
             <h1>📤 Import des produits</h1>
-            <p class="subtitle">Mettez à jour vos prix depuis un fichier CSV</p>
+            <p class="subtitle">Mettez à jour vos prix et stocks depuis un fichier CSV</p>
         </header>
 
         <div class="card">
             <a href="index.php" class="btn btn-primary" style="margin-bottom: 20px;">← Retour</a>
 
-            <?php if ($message): ?>
-                <div class="alert alert-<?php echo $messageType; ?>">
-                    <?php echo $message; ?>
-                </div>
-            <?php endif; ?>
-
-            <?php if ($results): ?>
-                <div class="stats">
-                    <div class="stat-box">
-                        <div class="stat-number"><?php echo $results['total']; ?></div>
-                        <div class="stat-label">Produits traités</div>
-                    </div>
-                    <div class="stat-box" style="border-left-color: #10b981;">
-                        <div class="stat-number" style="color: #10b981;"><?php echo $results['success']; ?></div>
-                        <div class="stat-label">Mis à jour</div>
-                    </div>
-                    <div class="stat-box" style="border-left-color: #ef4444;">
-                        <div class="stat-number" style="color: #ef4444;"><?php echo count($results['errors']); ?></div>
-                        <div class="stat-label">Erreurs</div>
-                    </div>
-                </div>
-
-                <?php if (!empty($details)): ?>
-                    <div style="margin-top: 20px;">
-                        <h3>📋 Détails des erreurs</h3>
-                        <div style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
-                            <?php foreach ($details as $error): ?>
-                                <div style="padding: 8px; background: #fee2e2; margin-bottom: 5px; border-radius: 4px; color: #991b1b;">
-                                    <?php echo htmlspecialchars($error); ?>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                <?php endif; ?>
-
-                <div style="margin-top: 20px;">
-                    <a href="import.php" class="btn btn-primary">Importer un autre fichier</a>
-                </div>
-
-            <?php else: ?>
+            <!-- Formulaire d'upload -->
+            <div id="upload-section">
 
                 <h2>Importer un fichier CSV</h2>
-                <p>Sélectionnez un fichier CSV pour mettre à jour les prix de vos produits.</p>
+                <p>Sélectionnez un fichier CSV pour mettre à jour les prix et stocks de vos produits.</p>
 
-                <form method="POST" enctype="multipart/form-data" style="margin-top: 20px;">
+                <form id="import-form" style="margin-top: 20px;">
                     <div class="form-group">
                         <label for="csv_file">Fichier CSV</label>
                         <input
@@ -156,12 +60,55 @@ if (isset($_POST['import']) && isset($_FILES['csv_file'])) {
                         <small>Sélectionnez au moins une option pour activer l'import</small>
                     </div>
 
-                    <button type="submit" name="import" id="import_btn" class="btn btn-warning">
+                    <button type="submit" id="import_btn" class="btn btn-warning">
                         📤 Importer et mettre à jour
                     </button>
                 </form>
+            </div>
 
-            <?php endif; ?>
+            <!-- Interface de progression (cachée par défaut) -->
+            <div id="progress-section" style="display: none;">
+                <h2>⏳ Import en cours...</h2>
+
+                <div class="stats">
+                    <div class="stat-box">
+                        <div class="stat-number" id="stat-total">0</div>
+                        <div class="stat-label">Produits à traiter</div>
+                    </div>
+                    <div class="stat-box" style="border-left-color: #3b82f6;">
+                        <div class="stat-number" style="color: #3b82f6;" id="stat-processed">0</div>
+                        <div class="stat-label">Traités</div>
+                    </div>
+                    <div class="stat-box" style="border-left-color: #10b981;">
+                        <div class="stat-number" style="color: #10b981;" id="stat-success">0</div>
+                        <div class="stat-label">Réussis</div>
+                    </div>
+                    <div class="stat-box" style="border-left-color: #ef4444;">
+                        <div class="stat-number" style="color: #ef4444;" id="stat-errors">0</div>
+                        <div class="stat-label">Erreurs</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 30px;">
+                    <div style="background: #e5e7eb; border-radius: 8px; height: 30px; overflow: hidden;">
+                        <div id="progress-bar" style="background: linear-gradient(90deg, #3b82f6, #10b981); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+                    </div>
+                    <p id="progress-text" style="text-align: center; margin-top: 10px; color: #6b7280;">Préparation...</p>
+                </div>
+
+                <div id="error-list" style="margin-top: 20px; display: none;">
+                    <h3>📋 Erreurs rencontrées</h3>
+                    <div id="error-container" style="max-height: 300px; overflow-y: auto; margin-top: 10px;"></div>
+                </div>
+            </div>
+
+            <!-- Résultats finaux (cachés par défaut) -->
+            <div id="results-section" style="display: none;">
+                <div id="final-message"></div>
+                <div style="margin-top: 20px;">
+                    <button onclick="location.reload()" class="btn btn-primary">Importer un autre fichier</button>
+                </div>
+            </div>
         </div>
 
         <div class="card help-card">
@@ -198,6 +145,8 @@ if (isset($_POST['import']) && isset($_FILES['csv_file'])) {
         const updatePriceCheckbox = document.getElementById('update_price');
         const updateStockCheckbox = document.getElementById('update_stock');
         const importBtn = document.getElementById('import_btn');
+        const importForm = document.getElementById('import-form');
+        const csvFileInput = document.getElementById('csv_file');
 
         if (updatePriceCheckbox && updateStockCheckbox && importBtn) {
             function updateImportButtonState() {
@@ -218,6 +167,242 @@ if (isset($_POST['import']) && isset($_FILES['csv_file'])) {
 
             // État initial
             updateImportButtonState();
+        }
+
+        // Gestion du formulaire d'import
+        if (importForm) {
+            importForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                const file = csvFileInput.files[0];
+                if (!file) {
+                    alert('Veuillez sélectionner un fichier CSV');
+                    return;
+                }
+
+                const updatePrice = updatePriceCheckbox.checked;
+                const updateStock = updateStockCheckbox.checked;
+
+                if (!updatePrice && !updateStock) {
+                    alert('Veuillez sélectionner au moins une option à mettre à jour');
+                    return;
+                }
+
+                // Masque le formulaire et affiche la progression
+                document.getElementById('upload-section').style.display = 'none';
+                document.getElementById('progress-section').style.display = 'block';
+
+                try {
+                    // Lit le fichier CSV
+                    const csvContent = await readFileAsText(file);
+
+                    // Parse le CSV
+                    const rows = parseCSV(csvContent);
+
+                    if (rows.length === 0) {
+                        throw new Error('Le fichier CSV est vide');
+                    }
+
+                    // La première ligne contient les en-têtes
+                    const headers = rows[0];
+                    const dataRows = rows.slice(1);
+
+                    if (dataRows.length === 0) {
+                        throw new Error('Le fichier CSV ne contient aucune donnée');
+                    }
+
+                    // Convertit les lignes en objets
+                    const products = dataRows.map(row => {
+                        const obj = {};
+                        headers.forEach((header, index) => {
+                            obj[header] = row[index] || '';
+                        });
+                        return obj;
+                    });
+
+                    // Initialise les stats
+                    document.getElementById('stat-total').textContent = products.length;
+
+                    // Traite par lots de 25 produits
+                    const batchSize = 25;
+                    const batches = [];
+                    for (let i = 0; i < products.length; i += batchSize) {
+                        batches.push(products.slice(i, i + batchSize));
+                    }
+
+                    let totalProcessed = 0;
+                    let totalSuccess = 0;
+                    const allErrors = [];
+
+                    // Traite chaque lot séquentiellement
+                    for (let i = 0; i < batches.length; i++) {
+                        const batch = batches[i];
+                        const batchNum = i + 1;
+
+                        // Met à jour le texte de progression
+                        document.getElementById('progress-text').textContent =
+                            `Traitement du lot ${batchNum}/${batches.length}...`;
+
+                        try {
+                            // Envoie le lot au serveur
+                            const response = await fetch('import_batch.php', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    batch: batch,
+                                    updatePrice: updatePrice,
+                                    updateStock: updateStock
+                                })
+                            });
+
+                            if (!response.ok) {
+                                throw new Error(`Erreur HTTP: ${response.status}`);
+                            }
+
+                            const result = await response.json();
+
+                            if (result.error) {
+                                throw new Error(result.error);
+                            }
+
+                            // Met à jour les stats
+                            totalProcessed += result.processed;
+                            totalSuccess += result.success;
+                            allErrors.push(...result.errors);
+
+                            document.getElementById('stat-processed').textContent = totalProcessed;
+                            document.getElementById('stat-success').textContent = totalSuccess;
+                            document.getElementById('stat-errors').textContent = allErrors.length;
+
+                            // Met à jour la barre de progression
+                            const progress = (totalProcessed / products.length) * 100;
+                            document.getElementById('progress-bar').style.width = progress + '%';
+
+                            // Affiche les erreurs si nécessaire
+                            if (result.errors.length > 0) {
+                                const errorList = document.getElementById('error-list');
+                                const errorContainer = document.getElementById('error-container');
+                                errorList.style.display = 'block';
+
+                                result.errors.forEach(error => {
+                                    const errorDiv = document.createElement('div');
+                                    errorDiv.style.padding = '8px';
+                                    errorDiv.style.background = '#fee2e2';
+                                    errorDiv.style.marginBottom = '5px';
+                                    errorDiv.style.borderRadius = '4px';
+                                    errorDiv.style.color = '#991b1b';
+                                    errorDiv.textContent = error;
+                                    errorContainer.appendChild(errorDiv);
+                                });
+                            }
+
+                        } catch (error) {
+                            console.error('Erreur lors du traitement du lot:', error);
+                            allErrors.push(`Erreur lot ${batchNum}: ${error.message}`);
+                            document.getElementById('stat-errors').textContent = allErrors.length;
+                        }
+                    }
+
+                    // Affiche les résultats finaux
+                    document.getElementById('progress-section').style.display = 'none';
+                    document.getElementById('results-section').style.display = 'block';
+
+                    const finalMessage = document.getElementById('final-message');
+                    if (totalSuccess > 0) {
+                        finalMessage.innerHTML = `
+                            <div class="alert alert-success">
+                                ✓ Import terminé avec succès ! ${totalSuccess} produit(s) mis à jour sur ${products.length}.
+                            </div>
+                        `;
+                    } else {
+                        finalMessage.innerHTML = `
+                            <div class="alert alert-error">
+                                ✗ Aucun produit n'a pu être mis à jour.
+                            </div>
+                        `;
+                    }
+
+                    if (allErrors.length > 0) {
+                        finalMessage.innerHTML += `
+                            <div style="margin-top: 20px;">
+                                <h3>📋 Détails des erreurs (${allErrors.length})</h3>
+                                <div style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
+                                    ${allErrors.map(error => `
+                                        <div style="padding: 8px; background: #fee2e2; margin-bottom: 5px; border-radius: 4px; color: #991b1b;">
+                                            ${error}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                } catch (error) {
+                    console.error('Erreur:', error);
+                    document.getElementById('progress-section').style.display = 'none';
+                    document.getElementById('results-section').style.display = 'block';
+                    document.getElementById('final-message').innerHTML = `
+                        <div class="alert alert-error">
+                            ✗ Erreur: ${error.message}
+                        </div>
+                    `;
+                }
+            });
+        }
+
+        // Fonction pour lire un fichier comme texte
+        function readFileAsText(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = (e) => reject(new Error('Erreur lors de la lecture du fichier'));
+                reader.readAsText(file, 'UTF-8');
+            });
+        }
+
+        // Fonction pour parser un CSV (séparateur point-virgule)
+        function parseCSV(csvContent) {
+            // Supprime le BOM UTF-8 si présent
+            if (csvContent.charCodeAt(0) === 0xFEFF) {
+                csvContent = csvContent.substr(1);
+            }
+
+            const lines = csvContent.split('\n');
+            const result = [];
+
+            for (let line of lines) {
+                // Ignore les lignes vides
+                line = line.trim();
+                if (line === '') continue;
+
+                // Parse la ligne (séparateur point-virgule)
+                // Gère les champs entre guillemets
+                const fields = [];
+                let currentField = '';
+                let inQuotes = false;
+
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+
+                    if (char === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (char === ';' && !inQuotes) {
+                        fields.push(currentField.trim());
+                        currentField = '';
+                    } else {
+                        currentField += char;
+                    }
+                }
+
+                // Ajoute le dernier champ
+                fields.push(currentField.trim());
+
+                result.push(fields);
+            }
+
+            return result;
         }
     </script>
 </body>

@@ -134,21 +134,10 @@ session_start();
 
             <div class="card action-card">
                 <h3>📤 Importer / Mettre à jour</h3>
-                <p>Mettez à jour les prix de vos produits depuis un fichier CSV</p>
-                <form method="POST" action="import.php" enctype="multipart/form-data">
-                    <div class="form-group">
-                        <input
-                            type="file"
-                            name="csv_file"
-                            accept=".csv"
-                            required
-                            class="file-input"
-                        >
-                    </div>
-                    <button type="submit" name="import" class="btn btn-warning">
-                        Importer CSV
-                    </button>
-                </form>
+                <p>Mettez à jour les prix et stocks de vos produits depuis un fichier CSV</p>
+                <a href="import.php" class="btn btn-warning" style="text-decoration: none; display: inline-block;">
+                    Importer CSV
+                </a>
             </div>
         </div>
         <?php endif; ?>
