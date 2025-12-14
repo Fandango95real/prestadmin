@@ -151,6 +151,7 @@ if (isset($_POST['export'])) {
                         <li><strong>Nom:</strong> Nom du produit</li>
                         <li><strong>Référence:</strong> Référence du produit</li>
                         <li><strong>Prix:</strong> Prix de vente (HT)</li>
+                        <li><strong>Quantité:</strong> Stock disponible</li>
                     </ul>
                 </div>
 
@@ -164,9 +165,10 @@ if (isset($_POST['export'])) {
                         <li><strong>CombinationName:</strong> Nom de la déclinaison (ex: "Rouge - S")</li>
                         <li><strong>Reference:</strong> Référence de la déclinaison</li>
                         <li><strong>Price:</strong> Prix de vente (HT)</li>
+                        <li><strong>Quantité:</strong> Stock disponible pour cette déclinaison</li>
                     </ul>
                     <p style="margin-top: 10px; padding: 10px; background: #f0f8ff; border-left: 3px solid #3498db;">
-                        <strong>Note:</strong> Ce format permet de gérer les prix fixes et relatifs de chaque déclinaison
+                        <strong>Note:</strong> Ce format permet de gérer les prix, stocks et attributs de chaque déclinaison individuellement
                     </p>
                 </div>
 
@@ -182,18 +184,19 @@ if (isset($_POST['export'])) {
             <h3>💡 Conseils</h3>
             <ul style="margin-left: 20px; margin-top: 10px;">
                 <li>Pour les boutiques avec beaucoup de produits, exportez par catégorie</li>
-                <li>Vous pouvez modifier les prix dans le fichier CSV avec Excel ou LibreOffice</li>
+                <li>Vous pouvez modifier les prix et quantités dans le fichier CSV avec Excel ou LibreOffice</li>
                 <li>Ne modifiez pas les colonnes ID, ProductID, CombinationID, Nom et Référence</li>
                 <li>Les prix utilisent la virgule comme séparateur décimal (format français)</li>
+                <li>Les quantités doivent être des nombres entiers positifs (0 ou plus)</li>
                 <li><strong>Export avec déclinaisons:</strong> Un produit avec 3 tailles et 2 couleurs générera 6 lignes dans le CSV</li>
                 <li><strong>Produits simples dans export déclinaisons:</strong> Ils apparaîtront avec CombinationID = 0</li>
-                <li>Après modification, utilisez la fonction "Importer" pour mettre à jour les prix</li>
+                <li>Après modification, utilisez la fonction "Importer" pour mettre à jour les prix et/ou stocks</li>
             </ul>
         </div>
     </div>
 
     <footer>
-        <p>PrestaShop CSV Manager - Version 1.1</p>
+        <p>PrestaShop CSV Manager - Version 1.2</p>
     </footer>
 </body>
 </html>

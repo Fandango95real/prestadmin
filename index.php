@@ -156,7 +156,7 @@ session_start();
     </div>
 
     <footer>
-        <p>PrestaShop CSV Manager - Version 1.1 - Compatible PrestaShop 8.2</p>
+        <p>PrestaShop CSV Manager - Version 1.2 - Compatible PrestaShop 8.2</p>
     </footer>
 
     <script>

@@ -114,30 +114,33 @@ if (!isset($_SESSION['connection_validated']) || $_SESSION['connection_validated
         <div class="card help-card">
             <h3>⚠️ Attention</h3>
             <ul style="margin-left: 20px; margin-top: 10px;">
-                <li>Les prix seront mis à jour immédiatement dans votre boutique</li>
+                <li>Les prix et stocks seront mis à jour immédiatement dans votre boutique</li>
                 <li>Il est recommandé de faire un export avant l'import pour sauvegarder vos données</li>
                 <li>Vérifiez bien le format de votre fichier CSV avant l'import</li>
                 <li>Les prix sont en Hors Taxes (HT)</li>
-                <li><strong>Déclinaisons:</strong> Le prix de chaque déclinaison peut être mis à jour individuellement</li>
-                <li>L'opération peut prendre plusieurs secondes selon le nombre de produits</li>
+                <li>Les quantités doivent être des nombres entiers positifs (0 ou plus)</li>
+                <li><strong>Déclinaisons:</strong> Le prix et stock de chaque déclinaison peuvent être mis à jour individuellement</li>
+                <li>Le traitement se fait par lots de 25 produits pour éviter les timeouts</li>
+                <li>Vous pouvez suivre la progression en temps réel pendant l'import</li>
             </ul>
         </div>
 
         <div class="card help-card" style="background: #f0f9ff; border-left-color: #3b82f6;">
             <h3>💡 Astuce</h3>
-            <p>Pour modifier rapidement vos prix:</p>
+            <p>Pour modifier rapidement vos prix et stocks:</p>
             <ol style="margin-left: 20px; margin-top: 10px;">
-                <li>Exportez vos produits en CSV</li>
+                <li>Exportez vos produits en CSV (avec ou sans déclinaisons)</li>
                 <li>Ouvrez le fichier avec Excel ou LibreOffice</li>
-                <li>Modifiez uniquement la colonne "Prix"</li>
+                <li>Modifiez les colonnes "Prix" et/ou "Quantité" selon vos besoins</li>
                 <li>Enregistrez le fichier (format CSV, séparateur point-virgule)</li>
-                <li>Importez le fichier sur cette page</li>
+                <li>Importez le fichier sur cette page en sélectionnant les options appropriées</li>
+                <li><strong>Astuce Pro:</strong> Vous pouvez ne modifier que les prix ou que les stocks en décochant une option</li>
             </ol>
         </div>
     </div>
 
     <footer>
-        <p>PrestaShop CSV Manager - Version 1.1</p>
+        <p>PrestaShop CSV Manager - Version 1.2</p>
     </footer>
 
     <script>
