@@ -248,9 +248,13 @@ if (isset($_POST['export'])) {
                     let totalRetrieved = 0;
 
                     // Récupère les produits par lots
+                    let batchNumber = 0;
                     while (hasMore) {
+                        batchNumber++;
                         document.getElementById('progress-text').textContent =
-                            `Récupération des produits (${totalRetrieved} récupérés)...`;
+                            `Récupération lot ${batchNumber} (${totalRetrieved} lignes récupérées)...`;
+
+                        console.log(`Lot ${batchNumber}: offset=${offset}, limit=${batchSize}, categoryId=${categoryId}`);
 
                         const response = await fetch('export_batch.php', {
                             method: 'POST',
@@ -270,6 +274,7 @@ if (isset($_POST['export'])) {
                         }
 
                         const result = await response.json();
+                        console.log(`Résultat lot ${batchNumber}:`, result);
 
                         if (result.error) {
                             throw new Error(result.error);
@@ -284,6 +289,7 @@ if (isset($_POST['export'])) {
 
                         // Vérifie s'il y a encore des produits
                         hasMore = result.hasMore;
+                        console.log(`hasMore=${hasMore}, count=${result.count}, totalRetrieved=${totalRetrieved}`);
                         offset += batchSize;
 
                         // Petite pause pour éviter de surcharger le serveur

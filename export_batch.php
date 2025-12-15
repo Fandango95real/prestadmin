@@ -49,7 +49,11 @@ try {
         // Export avec déclinaisons
         $items = $api->getAllProductsWithCombinations($categoryId, $limit, $offset);
 
+        // Compte les produits uniques (pas les lignes)
+        $uniqueProducts = [];
         foreach ($items as $item) {
+            $uniqueProducts[$item['product_id']] = true;
+
             $results['products'][] = [
                 'ProductID' => $item['product_id'],
                 'CombinationID' => $item['combination_id'],
@@ -61,8 +65,9 @@ try {
             ];
         }
 
-        $results['count'] = count($items);
-        $results['hasMore'] = count($items) === $limit;
+        $results['count'] = count($items); // Nombre de lignes pour l'affichage
+        // hasMore basé sur le nombre de PRODUITS, pas de lignes
+        $results['hasMore'] = count($uniqueProducts) === $limit;
 
     } else {
         // Export standard
