@@ -223,11 +223,15 @@ if (!isset($_SESSION['connection_validated']) || $_SESSION['connection_validated
                         return obj;
                     });
 
-                    // Initialise les stats
-                    document.getElementById('stat-total').textContent = products.length;
+                    // Initialise les stats avec le total
+                    const totalArticles = products.length;
+                    document.getElementById('stat-total').textContent = totalArticles;
+                    document.getElementById('stat-processed').textContent = '0';
+                    document.getElementById('stat-success').textContent = '0';
+                    document.getElementById('stat-errors').textContent = '0';
 
-                    // Traite par lots de 25 produits
-                    const batchSize = 25;
+                    // Traite par lots de 10 articles pour mise à jour fréquente
+                    const batchSize = 10;
                     const batches = [];
                     for (let i = 0; i < products.length; i += batchSize) {
                         batches.push(products.slice(i, i + batchSize));
@@ -244,7 +248,7 @@ if (!isset($_SESSION['connection_validated']) || $_SESSION['connection_validated
 
                         // Met à jour le texte de progression
                         document.getElementById('progress-text').textContent =
-                            `Traitement du lot ${batchNum}/${batches.length}...`;
+                            `Traitement: ${totalProcessed}/${totalArticles} articles (lot ${batchNum}/${batches.length})`;
 
                         try {
                             // Envoie le lot au serveur

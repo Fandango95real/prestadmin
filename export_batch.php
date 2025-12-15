@@ -23,6 +23,68 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $json = file_get_contents('php://input');
 $data = json_decode($json, true);
 
+// Mode comptage uniquement
+if (isset($data['countOnly']) && $data['countOnly'] === true) {
+    if (!isset($data['exportType']) || !isset($data['categoryId'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Données invalides']);
+        exit;
+    }
+
+    require_once 'PrestaShopAPI.php';
+
+    try {
+        $api = new PrestaShopAPI($_SESSION['shop_url'], $_SESSION['api_key'], false);
+        $exportType = $data['exportType'];
+        $categoryId = intval($data['categoryId']);
+
+        // Compte le nombre total d'articles (lignes CSV)
+        $totalCount = 0;
+
+        if ($exportType === 'combinations') {
+            // Compte toutes les lignes (produits + déclinaisons)
+            $offset = 0;
+            $limit = 50; // Lots plus gros pour le comptage
+            $hasMore = true;
+
+            while ($hasMore) {
+                $items = $api->getAllProductsWithCombinations($categoryId, $limit, $offset);
+                $totalCount += count($items);
+
+                // Compte les produits uniques pour savoir si on continue
+                $uniqueProducts = [];
+                foreach ($items as $item) {
+                    $uniqueProducts[$item['product_id']] = true;
+                }
+
+                $hasMore = count($uniqueProducts) === $limit;
+                $offset += $limit;
+            }
+        } else {
+            // Compte les produits standards
+            $offset = 0;
+            $limit = 50;
+            $hasMore = true;
+
+            while ($hasMore) {
+                $products = $api->getAllProducts($categoryId, $limit, $offset);
+                $totalCount += count($products);
+                $hasMore = count($products) === $limit;
+                $offset += $limit;
+            }
+        }
+
+        header('Content-Type: application/json');
+        echo json_encode(['total' => $totalCount]);
+        exit;
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['error' => $e->getMessage()]);
+        exit;
+    }
+}
+
 if (!$data || !isset($data['offset']) || !isset($data['limit']) || !isset($data['exportType']) || !isset($data['categoryId'])) {
     http_response_code(400);
     echo json_encode(['error' => 'Données invalides']);

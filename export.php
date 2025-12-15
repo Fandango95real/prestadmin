@@ -241,18 +241,49 @@ if (isset($_POST['export'])) {
                 document.getElementById('progress-section').style.display = 'block';
 
                 try {
+                    // Étape 1: Compte le nombre total d'articles
+                    document.getElementById('progress-text').textContent = 'Comptage des articles...';
+
+                    const countResponse = await fetch('export_batch.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            countOnly: true,
+                            exportType: exportType,
+                            categoryId: categoryId
+                        })
+                    });
+
+                    if (!countResponse.ok) {
+                        throw new Error(`Erreur HTTP lors du comptage: ${countResponse.status}`);
+                    }
+
+                    const countResult = await countResponse.json();
+                    if (countResult.error) {
+                        throw new Error(countResult.error);
+                    }
+
+                    const totalArticles = countResult.total;
+                    console.log(`Total d'articles à exporter: ${totalArticles}`);
+
+                    if (totalArticles === 0) {
+                        throw new Error('Aucun produit à exporter');
+                    }
+
+                    // Étape 2: Récupère les produits par lots
                     const allProducts = [];
                     let offset = 0;
-                    const batchSize = 25; // 25 produits par lot
+                    const batchSize = 10; // 10 articles par lot pour mise à jour fréquente
                     let hasMore = true;
                     let totalRetrieved = 0;
 
-                    // Récupère les produits par lots
                     let batchNumber = 0;
                     while (hasMore) {
                         batchNumber++;
                         document.getElementById('progress-text').textContent =
-                            `Récupération lot ${batchNumber} (${totalRetrieved} lignes récupérées)...`;
+                            `Export: ${totalRetrieved}/${totalArticles} articles (lot ${batchNumber})`;
 
                         console.log(`Lot ${batchNumber}: offset=${offset}, limit=${batchSize}, categoryId=${categoryId}`);
 
@@ -287,6 +318,10 @@ if (isset($_POST['export'])) {
                         // Met à jour l'affichage
                         document.getElementById('stat-retrieved').textContent = totalRetrieved;
 
+                        // Met à jour la barre de progression
+                        const progress = (totalRetrieved / totalArticles) * 100;
+                        document.getElementById('progress-bar').style.width = progress + '%';
+
                         // Vérifie s'il y a encore des produits
                         hasMore = result.hasMore;
                         console.log(`hasMore=${hasMore}, count=${result.count}, totalRetrieved=${totalRetrieved}`);
@@ -296,13 +331,9 @@ if (isset($_POST['export'])) {
                         await new Promise(resolve => setTimeout(resolve, 100));
                     }
 
-                    if (allProducts.length === 0) {
-                        throw new Error('Aucun produit à exporter');
-                    }
-
                     // Génère le fichier CSV
                     document.getElementById('progress-text').textContent =
-                        `Génération du fichier CSV (${totalRetrieved} produits)...`;
+                        `Génération du fichier CSV (${totalRetrieved}/${totalArticles} articles)...`;
 
                     const csvContent = generateCSV(allProducts, exportType);
 
