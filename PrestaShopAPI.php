@@ -404,9 +404,10 @@ class PrestaShopAPI {
      * @param int $limit Nombre de produits par page
      * @return array Liste des produits avec [id, name, reference, price]
      */
-    public function getAllProducts($categoryId = 0, $limit = 50) {
+    public function getAllProducts($categoryId = 0, $limit = 50, $startOffset = null) {
         $products = [];
-        $offset = 0;
+        $offset = $startOffset !== null ? $startOffset : 0;
+        $singleBatch = $startOffset !== null; // Si offset fourni, on ne fait qu'un seul lot
 
         try {
             // Première requête pour obtenir les IDs seulement
@@ -416,7 +417,7 @@ class PrestaShopAPI {
                 $params['filter[id_category_default]'] = $categoryId;
             }
 
-            while (true) {
+            do {
                 $params['limit'] = "$offset,$limit";
                 $result = $this->makeRequest('products', $params);
 
@@ -464,6 +465,11 @@ class PrestaShopAPI {
                     }
                 }
 
+                // Si mode batch unique, on arrête après le premier lot
+                if ($singleBatch) {
+                    break;
+                }
+
                 // Si on a récupéré moins que la limite, on a tout
                 if (count($productIds) < $limit) {
                     break;
@@ -475,7 +481,7 @@ class PrestaShopAPI {
                 if ($offset > 10000) {
                     break;
                 }
-            }
+            } while (true);
 
         } catch (Exception $e) {
             throw new Exception("Erreur lors de la récupération des produits: " . $e->getMessage());
@@ -592,14 +598,16 @@ class PrestaShopAPI {
     /**
      * Récupère tous les produits avec leurs déclinaisons
      * @param int $categoryId ID de catégorie (optionnel, 0 = toutes)
+     * @param int $limit Nombre de produits par lot (optionnel)
+     * @param int $offset Offset pour pagination (optionnel)
      * @return array Liste combinée produits + déclinaisons
      */
-    public function getAllProductsWithCombinations($categoryId = 0) {
+    public function getAllProductsWithCombinations($categoryId = 0, $limit = 50, $offset = null) {
         $result = [];
 
         try {
-            // Récupère tous les produits
-            $products = $this->getAllProducts($categoryId);
+            // Récupère les produits (avec ou sans pagination)
+            $products = $this->getAllProducts($categoryId, $limit, $offset);
 
             foreach ($products as $product) {
                 $productId = $product['id'];

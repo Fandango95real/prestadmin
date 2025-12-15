@@ -103,10 +103,12 @@ if (isset($_POST['export'])) {
                 </div>
             <?php endif; ?>
 
-            <h2>Exporter les produits</h2>
-            <p>Sélectionnez une catégorie ou exportez tous les produits.</p>
+            <!-- Formulaire d'export -->
+            <div id="export-form-section">
+                <h2>Exporter les produits</h2>
+                <p>Sélectionnez une catégorie ou exportez tous les produits.</p>
 
-            <form method="POST" style="margin-top: 20px;">
+                <form id="export-form" style="margin-top: 20px;">
                 <div class="form-group">
                     <label for="category_id">Catégorie</label>
                     <select id="category_id" name="category_id" class="select-input">
@@ -135,10 +137,34 @@ if (isset($_POST['export'])) {
                     <small>Choisissez "avec déclinaisons" pour gérer finement les prix de chaque variante</small>
                 </div>
 
-                <button type="submit" name="export" class="btn btn-success">
+                <button type="submit" id="export_btn" class="btn btn-success">
                     📥 Télécharger le fichier CSV
                 </button>
             </form>
+            </div>
+
+            <!-- Interface de progression (cachée par défaut) -->
+            <div id="progress-section" style="display: none;">
+                <h2>⏳ Export en cours...</h2>
+
+                <div class="stats">
+                    <div class="stat-box" style="border-left-color: #3b82f6;">
+                        <div class="stat-number" style="color: #3b82f6;" id="stat-retrieved">0</div>
+                        <div class="stat-label">Produits récupérés</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 30px;">
+                    <div style="background: #e5e7eb; border-radius: 8px; height: 30px; overflow: hidden;">
+                        <div id="progress-bar" style="background: linear-gradient(90deg, #3b82f6, #10b981); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+                    </div>
+                    <p id="progress-text" style="text-align: center; margin-top: 10px; color: #6b7280;">Récupération des produits...</p>
+                </div>
+
+                <div id="error-message" style="margin-top: 20px; display: none;">
+                    <div class="alert alert-error" id="error-content"></div>
+                </div>
+            </div>
 
             <div class="info-card" style="margin-top: 30px;">
                 <h3>ℹ️ Informations sur l'export</h3>
@@ -198,5 +224,174 @@ if (isset($_POST['export'])) {
     <footer>
         <p>PrestaShop CSV Manager - Version 1.2</p>
     </footer>
+
+    <script>
+        const exportForm = document.getElementById('export-form');
+        const exportBtn = document.getElementById('export_btn');
+
+        if (exportForm) {
+            exportForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                const categoryId = parseInt(document.getElementById('category_id').value);
+                const exportType = document.querySelector('input[name="export_type"]:checked').value;
+
+                // Masque le formulaire et affiche la progression
+                document.getElementById('export-form-section').style.display = 'none';
+                document.getElementById('progress-section').style.display = 'block';
+
+                try {
+                    const allProducts = [];
+                    let offset = 0;
+                    const batchSize = 25; // 25 produits par lot
+                    let hasMore = true;
+                    let totalRetrieved = 0;
+
+                    // Récupère les produits par lots
+                    while (hasMore) {
+                        document.getElementById('progress-text').textContent =
+                            `Récupération des produits (${totalRetrieved} récupérés)...`;
+
+                        const response = await fetch('export_batch.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                offset: offset,
+                                limit: batchSize,
+                                exportType: exportType,
+                                categoryId: categoryId
+                            })
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(`Erreur HTTP: ${response.status}`);
+                        }
+
+                        const result = await response.json();
+
+                        if (result.error) {
+                            throw new Error(result.error);
+                        }
+
+                        // Ajoute les produits récupérés
+                        allProducts.push(...result.products);
+                        totalRetrieved += result.count;
+
+                        // Met à jour l'affichage
+                        document.getElementById('stat-retrieved').textContent = totalRetrieved;
+
+                        // Vérifie s'il y a encore des produits
+                        hasMore = result.hasMore;
+                        offset += batchSize;
+
+                        // Petite pause pour éviter de surcharger le serveur
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+
+                    if (allProducts.length === 0) {
+                        throw new Error('Aucun produit à exporter');
+                    }
+
+                    // Génère le fichier CSV
+                    document.getElementById('progress-text').textContent =
+                        `Génération du fichier CSV (${totalRetrieved} produits)...`;
+
+                    const csvContent = generateCSV(allProducts, exportType);
+
+                    // Télécharge le fichier
+                    downloadCSV(csvContent, exportType, categoryId);
+
+                    // Affiche le message de succès
+                    document.getElementById('progress-text').textContent =
+                        `✓ Export terminé ! ${totalRetrieved} produit(s) exporté(s)`;
+                    document.getElementById('progress-bar').style.width = '100%';
+
+                    // Redirige vers la page d'accueil après 2 secondes
+                    setTimeout(() => {
+                        window.location.href = 'index.php';
+                    }, 2000);
+
+                } catch (error) {
+                    console.error('Erreur:', error);
+                    document.getElementById('error-message').style.display = 'block';
+                    document.getElementById('error-content').textContent =
+                        'Erreur lors de l\'export: ' + error.message;
+                    document.getElementById('progress-text').textContent =
+                        '✗ Export échoué';
+                }
+            });
+        }
+
+        // Génère le contenu CSV
+        function generateCSV(products, exportType) {
+            let csv = '\uFEFF'; // BOM UTF-8
+
+            if (exportType === 'combinations') {
+                // En-tête pour export avec déclinaisons
+                csv += 'ProductID;CombinationID;ProductName;CombinationName;Reference;Price;Quantité\n';
+
+                // Lignes de données
+                products.forEach(product => {
+                    csv += [
+                        product.ProductID,
+                        product.CombinationID,
+                        escapeCSV(product.ProductName),
+                        escapeCSV(product.CombinationName),
+                        escapeCSV(product.Reference),
+                        product.Price,
+                        product.Quantité
+                    ].join(';') + '\n';
+                });
+            } else {
+                // En-tête pour export standard
+                csv += 'ID;Nom;Référence;Prix;Quantité\n';
+
+                // Lignes de données
+                products.forEach(product => {
+                    csv += [
+                        product.ID,
+                        escapeCSV(product.Nom),
+                        escapeCSV(product.Référence),
+                        product.Prix,
+                        product.Quantité
+                    ].join(';') + '\n';
+                });
+            }
+
+            return csv;
+        }
+
+        // Échappe les valeurs CSV (gère les guillemets et point-virgules)
+        function escapeCSV(value) {
+            if (!value) return '';
+            value = String(value);
+            if (value.includes(';') || value.includes('"') || value.includes('\n')) {
+                return '"' + value.replace(/"/g, '""') + '"';
+            }
+            return value;
+        }
+
+        // Télécharge le fichier CSV
+        function downloadCSV(csvContent, exportType, categoryId) {
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+
+            // Nom du fichier
+            const date = new Date().toISOString().slice(0, 10);
+            const catSuffix = categoryId > 0 ? `_cat${categoryId}` : '_all';
+            const typeSuffix = exportType === 'combinations' ? '_combinations' : '';
+            const filename = `products${catSuffix}${typeSuffix}_${date}.csv`;
+
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.style.display = 'none';
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
 </body>
 </html>
