@@ -596,6 +596,107 @@ class PrestaShopAPI {
     }
 
     /**
+     * Compte rapidement le nombre total de lignes (produits + déclinaisons) sans récupérer les détails
+     * @param int $categoryId ID de catégorie (optionnel, 0 = toutes)
+     * @param string $exportType Type d'export ('standard' ou 'combinations')
+     * @return int Nombre total de lignes
+     */
+    public function countProductLines($categoryId = 0, $exportType = 'combinations') {
+        $totalCount = 0;
+
+        try {
+            if ($exportType === 'combinations') {
+                // Compte rapide avec déclinaisons - uniquement les IDs
+                $offset = 0;
+                $limit = 50;
+                $hasMore = true;
+
+                while ($hasMore) {
+                    // Récupère uniquement les IDs des produits
+                    $params = ['display' => '[id]', 'limit' => "$offset,$limit"];
+                    if ($categoryId > 0) {
+                        $params['filter[id_category_default]'] = $categoryId;
+                    }
+
+                    $result = $this->makeRequest('products', $params);
+
+                    if (!$result || !isset($result->products->product)) {
+                        break;
+                    }
+
+                    $productIds = [];
+                    foreach ($result->products->product as $product) {
+                        $productIds[] = (string)$product->id;
+                    }
+
+                    if (empty($productIds)) {
+                        break;
+                    }
+
+                    // Pour chaque produit, compte ses déclinaisons
+                    foreach ($productIds as $productId) {
+                        // Récupère uniquement les IDs des déclinaisons
+                        $combResult = $this->makeRequest('combinations', [
+                            'display' => '[id]',
+                            'filter[id_product]' => $productId
+                        ]);
+
+                        if ($combResult && isset($combResult->combinations->combination)) {
+                            // Si c'est un tableau de déclinaisons
+                            if (is_array($combResult->combinations->combination)) {
+                                $totalCount += count($combResult->combinations->combination);
+                            } else {
+                                // Une seule déclinaison
+                                $totalCount += 1;
+                            }
+                        } else {
+                            // Pas de déclinaisons, c'est un produit simple
+                            $totalCount += 1;
+                        }
+                    }
+
+                    $hasMore = count($productIds) === $limit;
+                    $offset += $limit;
+                }
+            } else {
+                // Compte rapide standard - juste les produits
+                $offset = 0;
+                $limit = 50;
+                $hasMore = true;
+
+                while ($hasMore) {
+                    $params = ['display' => '[id]', 'limit' => "$offset,$limit"];
+                    if ($categoryId > 0) {
+                        $params['filter[id_category_default]'] = $categoryId;
+                    }
+
+                    $result = $this->makeRequest('products', $params);
+
+                    if (!$result || !isset($result->products->product)) {
+                        break;
+                    }
+
+                    if (is_array($result->products->product)) {
+                        $totalCount += count($result->products->product);
+                        $hasMore = count($result->products->product) === $limit;
+                    } else {
+                        $totalCount += 1;
+                        $hasMore = false;
+                    }
+
+                    $offset += $limit;
+                }
+            }
+
+        } catch (Exception $e) {
+            error_log("Erreur comptage: " . $e->getMessage());
+            return 0;
+        }
+
+        return $totalCount;
+    }
+
+    /**
      * Récupère tous les produits avec leurs déclinaisons
      * @param int $categoryId ID de catégorie (optionnel, 0 = toutes)
      * @param int $limit Nombre de produits par lot (optionnel)

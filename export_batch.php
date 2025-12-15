@@ -38,41 +38,8 @@ if (isset($data['countOnly']) && $data['countOnly'] === true) {
         $exportType = $data['exportType'];
         $categoryId = intval($data['categoryId']);
 
-        // Compte le nombre total d'articles (lignes CSV)
-        $totalCount = 0;
-
-        if ($exportType === 'combinations') {
-            // Compte toutes les lignes (produits + déclinaisons)
-            $offset = 0;
-            $limit = 50; // Lots plus gros pour le comptage
-            $hasMore = true;
-
-            while ($hasMore) {
-                $items = $api->getAllProductsWithCombinations($categoryId, $limit, $offset);
-                $totalCount += count($items);
-
-                // Compte les produits uniques pour savoir si on continue
-                $uniqueProducts = [];
-                foreach ($items as $item) {
-                    $uniqueProducts[$item['product_id']] = true;
-                }
-
-                $hasMore = count($uniqueProducts) === $limit;
-                $offset += $limit;
-            }
-        } else {
-            // Compte les produits standards
-            $offset = 0;
-            $limit = 50;
-            $hasMore = true;
-
-            while ($hasMore) {
-                $products = $api->getAllProducts($categoryId, $limit, $offset);
-                $totalCount += count($products);
-                $hasMore = count($products) === $limit;
-                $offset += $limit;
-            }
-        }
+        // Utilise la méthode optimisée de comptage (uniquement les IDs, pas les détails)
+        $totalCount = $api->countProductLines($categoryId, $exportType);
 
         header('Content-Type: application/json');
         echo json_encode(['total' => $totalCount]);
