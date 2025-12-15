@@ -20,6 +20,41 @@ class PrestaShopAPI {
     }
 
     /**
+     * Enregistre une opération dans le fichier de log
+     * @param string $action Type d'action (export ou import)
+     * @param array $details Détails de l'opération
+     */
+    private function logOperation($action, $details = []) {
+        $logFile = __DIR__ . '/operations.log';
+
+        // Prépare les informations de base
+        $timestamp = date('Y-m-d H:i:s');
+        $url = $_SERVER['HTTP_HOST'] ?? 'CLI';
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'N/A';
+
+        // Construit le message de log
+        $logMessage = sprintf(
+            "[%s] URL: %s | IP: %s | Action: %s",
+            $timestamp,
+            $url,
+            $ip,
+            strtoupper($action)
+        );
+
+        // Ajoute les détails spécifiques
+        if (!empty($details)) {
+            foreach ($details as $key => $value) {
+                $logMessage .= sprintf(" | %s: %s", ucfirst($key), $value);
+            }
+        }
+
+        $logMessage .= PHP_EOL;
+
+        // Écrit dans le fichier de log
+        file_put_contents($logFile, $logMessage, FILE_APPEND | LOCK_EX);
+    }
+
+    /**
      * Effectue une requête à l'API PrestaShop
      * @param string $resource Ressource à interroger (ex: 'products')
      * @param array $params Paramètres de la requête
@@ -822,8 +857,17 @@ class PrestaShopAPI {
 
             fclose($fp);
 
+            $count = count($items);
+
+            // Log de l'opération
+            $this->logOperation('export', [
+                'type' => 'déclinaisons',
+                'categorie' => $categoryId == 0 ? 'toutes' : $categoryId,
+                'produits' => $count
+            ]);
+
             return [
-                'count' => count($items),
+                'count' => $count,
                 'filename' => $filename
             ];
 
@@ -873,8 +917,17 @@ class PrestaShopAPI {
 
             fclose($fp);
 
+            $count = count($products);
+
+            // Log de l'opération
+            $this->logOperation('export', [
+                'type' => 'standard',
+                'categorie' => $categoryId == 0 ? 'toutes' : $categoryId,
+                'produits' => $count
+            ]);
+
             return [
-                'count' => count($products),
+                'count' => $count,
                 'filename' => $filename
             ];
 
@@ -1055,6 +1108,15 @@ class PrestaShopAPI {
             }
 
             fclose($fp);
+
+            // Log de l'opération
+            $this->logOperation('import', [
+                'produits_traités' => $results['total'],
+                'succès' => $results['success'],
+                'erreurs' => count($results['errors']),
+                'màj_prix' => $updatePrice ? 'oui' : 'non',
+                'màj_stock' => $updateStock ? 'oui' : 'non'
+            ]);
 
         } catch (Exception $e) {
             throw new Exception("Erreur lors de l'import CSV: " . $e->getMessage());
