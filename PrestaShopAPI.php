@@ -29,14 +29,14 @@ class PrestaShopAPI {
 
         // Prépare les informations de base
         $timestamp = date('Y-m-d H:i:s');
-        $url = $_SERVER['HTTP_HOST'] ?? 'CLI';
+        $shopUrl = $this->shopUrl; // URL du shop PrestaShop
         $ip = $_SERVER['REMOTE_ADDR'] ?? 'N/A';
 
         // Construit le message de log
         $logMessage = sprintf(
-            "[%s] URL: %s | IP: %s | Action: %s",
+            "[%s] Shop: %s | IP: %s | Action: %s",
             $timestamp,
-            $url,
+            $shopUrl,
             $ip,
             strtoupper($action)
         );
