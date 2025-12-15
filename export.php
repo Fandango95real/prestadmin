@@ -86,6 +86,12 @@ if (isset($_POST['export'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Export CSV - PrestaShop CSV Manager</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -240,42 +246,16 @@ if (isset($_POST['export'])) {
                 document.getElementById('export-form-section').style.display = 'none';
                 document.getElementById('progress-section').style.display = 'block';
 
+                // Active l'animation de la barre de progression
+                const progressBar = document.getElementById('progress-bar');
+                progressBar.style.width = '100%';
+                progressBar.style.animation = 'pulse 1.5s ease-in-out infinite';
+
                 try {
-                    // Étape 1: Compte le nombre total d'articles
-                    document.getElementById('progress-text').textContent = 'Comptage des articles...';
-
-                    const countResponse = await fetch('export_batch.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            countOnly: true,
-                            exportType: exportType,
-                            categoryId: categoryId
-                        })
-                    });
-
-                    if (!countResponse.ok) {
-                        throw new Error(`Erreur HTTP lors du comptage: ${countResponse.status}`);
-                    }
-
-                    const countResult = await countResponse.json();
-                    if (countResult.error) {
-                        throw new Error(countResult.error);
-                    }
-
-                    const totalArticles = countResult.total;
-                    console.log(`Total d'articles à exporter: ${totalArticles}`);
-
-                    if (totalArticles === 0) {
-                        throw new Error('Aucun produit à exporter');
-                    }
-
-                    // Étape 2: Récupère les produits par lots
+                    // Récupère les produits par lots sans comptage préalable
                     const allProducts = [];
                     let offset = 0;
-                    const batchSize = 10; // 10 articles par lot pour mise à jour fréquente
+                    const batchSize = 10; // 10 produits par lot
                     let hasMore = true;
                     let totalRetrieved = 0;
 
@@ -283,7 +263,7 @@ if (isset($_POST['export'])) {
                     while (hasMore) {
                         batchNumber++;
                         document.getElementById('progress-text').textContent =
-                            `Export: ${totalRetrieved}/${totalArticles} articles (lot ${batchNumber})`;
+                            `Export en cours: ${totalRetrieved} articles (lot ${batchNumber})`;
 
                         console.log(`Lot ${batchNumber}: offset=${offset}, limit=${batchSize}, categoryId=${categoryId}`);
 
@@ -318,10 +298,6 @@ if (isset($_POST['export'])) {
                         // Met à jour l'affichage
                         document.getElementById('stat-retrieved').textContent = totalRetrieved;
 
-                        // Met à jour la barre de progression
-                        const progress = (totalRetrieved / totalArticles) * 100;
-                        document.getElementById('progress-bar').style.width = progress + '%';
-
                         // Vérifie s'il y a encore des produits
                         hasMore = result.hasMore;
                         console.log(`hasMore=${hasMore}, count=${result.count}, totalRetrieved=${totalRetrieved}`);
@@ -333,20 +309,22 @@ if (isset($_POST['export'])) {
 
                     // Génère le fichier CSV
                     document.getElementById('progress-text').textContent =
-                        `Génération du fichier CSV (${totalRetrieved}/${totalArticles} articles)...`;
+                        `Génération du fichier CSV (${totalRetrieved} articles)...`;
 
                     const csvContent = generateCSV(allProducts, exportType);
 
                     // Télécharge le fichier
                     downloadCSV(csvContent, exportType, categoryId);
 
-                    // Affiche le message de succès
+                    // Affiche le message de succès et redirige
                     document.getElementById('progress-text').textContent =
                         `✓ Export terminé ! ${totalRetrieved} produit(s) exporté(s)`;
-                    document.getElementById('progress-bar').style.width = '100%';
+                    progressBar.style.animation = 'none';
+                    progressBar.style.opacity = '1';
+                    progressBar.style.width = '100%';
 
                     // Redirige vers la page d'accueil après 2 secondes
-                    setTimeout(() => {
+                    setTimeout(function() {
                         window.location.href = 'index.php';
                     }, 2000);
 
