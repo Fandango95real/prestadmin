@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once 'version.php';
 
 // Vérifie que la connexion a été validée
 if (!isset($_SESSION['connection_validated']) || $_SESSION['connection_validated'] !== true) {
@@ -140,7 +141,7 @@ if (!isset($_SESSION['connection_validated']) || $_SESSION['connection_validated
     </div>
 
     <footer>
-        <p>PrestaShop CSV Manager - Version 1.2</p>
+        <p><?php echo APP_NAME; ?> - Version <?php echo APP_VERSION; ?></p>
     </footer>
 
     <script>

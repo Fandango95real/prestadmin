@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once 'version.php';
 
 // Augmente les timeouts pour éviter les erreurs 524
 set_time_limit(600); // 10 minutes
@@ -228,7 +229,7 @@ if (isset($_POST['export'])) {
     </div>
 
     <footer>
-        <p>PrestaShop CSV Manager - Version 1.2</p>
+        <p><?php echo APP_NAME; ?> - Version <?php echo APP_VERSION; ?></p>
     </footer>
 
     <script>

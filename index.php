@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once 'version.php';
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -156,7 +157,7 @@ session_start();
     </div>
 
     <footer>
-        <p>PrestaShop CSV Manager - Version 1.2 - Compatible PrestaShop 8.2</p>
+        <p><?php echo APP_NAME; ?> - Version <?php echo APP_VERSION; ?> - Compatible <?php echo APP_PRESTASHOP_VERSION; ?></p>
     </footer>
 
     <script>
