@@ -312,6 +312,24 @@ if (!isset($_SESSION['connection_validated']) || $_SESSION['connection_validated
                         }
                     }
 
+                    // Log de l'opération
+                    await fetch('log_operation.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            action: 'import',
+                            details: {
+                                'produits_traités': totalArticles,
+                                'succès': totalSuccess,
+                                'erreurs': allErrors.length,
+                                'màj_prix': updatePrice ? 'oui' : 'non',
+                                'màj_stock': updateStock ? 'oui' : 'non'
+                            }
+                        })
+                    });
+
                     // Affiche les résultats finaux
                     document.getElementById('progress-section').style.display = 'none';
                     document.getElementById('results-section').style.display = 'block';

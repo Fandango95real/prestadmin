@@ -316,6 +316,22 @@ if (isset($_POST['export'])) {
                     // Télécharge le fichier
                     downloadCSV(csvContent, exportType, categoryId);
 
+                    // Log de l'opération
+                    await fetch('log_operation.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            action: 'export',
+                            details: {
+                                type: exportType === 'combinations' ? 'déclinaisons' : 'standard',
+                                categorie: categoryId == 0 ? 'toutes' : categoryId,
+                                produits: totalRetrieved
+                            }
+                        })
+                    });
+
                     // Affiche le message de succès
                     document.getElementById('progress-text').textContent =
                         `✓ Export terminé ! ${totalRetrieved} produit(s) exporté(s)`;
