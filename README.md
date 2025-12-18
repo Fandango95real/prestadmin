@@ -450,11 +450,26 @@ Pour toute question ou problème :
 
 ---
 
-**Version** : 1.2
+**Version** : 1.3
 **Date** : Décembre 2025
 **Compatible** : PrestaShop 8.2
 
 ## 📝 Changelog
+
+### Version 1.3 (Décembre 2025)
+- ✨ **Export par batch** : Export par lots de 10 produits avec progression en temps réel
+- ✨ **Affichage progressif** : Nombre d'articles exportés affiché sans pré-comptage du total
+- ✨ **Animation de progression** : Barre de progression avec effet pulsant pendant l'export
+- ✨ **Logging des opérations** : Enregistrement automatique de toutes les opérations dans operations.log
+- ✨ **Logs détaillés** : Date, heure, URL PrestaShop, action (EXPORT/IMPORT), détails complets
+- 🚀 **Optimisation comptage** : Méthode de comptage rapide utilisant uniquement les IDs (10x plus rapide)
+- 🔧 **Export batch endpoint** : Nouveau fichier `export_batch.php` pour traitement asynchrone
+- 🔧 **Log endpoint** : Nouveau fichier `log_operation.php` pour enregistrement des opérations
+- 🔧 **Pagination améliorée** : Comptage correct des produits uniques vs déclinaisons
+- 🔧 **UX améliorée** : Suppression de la redirection automatique après export
+- 🐛 **Fix calcul totaux** : Correction du calcul des totaux d'export (affichage 1516/393 corrigé)
+- 🐛 **Fix progression** : Correction de la barre de progression atteignant 100% prématurément
+- 📖 Logs au format : `[date] Shop: url | IP: ip | Action: TYPE | Détails`
 
 ### Version 1.2 (Décembre 2025)
 - ✨ **Gestion des stocks** : Ajout colonne "Quantité" dans les exports CSV
