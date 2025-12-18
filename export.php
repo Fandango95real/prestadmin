@@ -316,17 +316,12 @@ if (isset($_POST['export'])) {
                     // Télécharge le fichier
                     downloadCSV(csvContent, exportType, categoryId);
 
-                    // Affiche le message de succès et redirige
+                    // Affiche le message de succès
                     document.getElementById('progress-text').textContent =
                         `✓ Export terminé ! ${totalRetrieved} produit(s) exporté(s)`;
                     progressBar.style.animation = 'none';
                     progressBar.style.opacity = '1';
                     progressBar.style.width = '100%';
-
-                    // Redirige vers la page d'accueil après 2 secondes
-                    setTimeout(function() {
-                        window.location.href = 'index.php';
-                    }, 2000);
 
                 } catch (error) {
                     console.error('Erreur:', error);
